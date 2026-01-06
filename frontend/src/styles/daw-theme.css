@@ -1,0 +1,262 @@
+/**
+ * Harmonix Pro Analyzer - DAW Design Token System
+ * Professional music production aesthetic inspired by Pro Tools, Logic Pro X, Ableton Live
+ *
+ * Color Philosophy:
+ * - Dark space backgrounds for reduced eye strain during long sessions
+ * - Metallic accents for premium feel
+ * - Luxury gold for primary actions and emphasis
+ * - Analytical colors for data visualization
+ * - Semantic colors for status feedback
+ */
+
+:root {
+  /* ============================================
+     COLOR SYSTEM - Deep Space Foundation
+     ============================================ */
+
+  /* Background Layers (Darkest to Lightest) */
+  --daw-bg-deepest: #0B0C10;      /* Main application background */
+  --daw-bg-deep: #1A1D23;         /* Secondary panels */
+  --daw-bg-raised: #22252D;       /* Card surfaces */
+  --daw-bg-elevated: #2A2E38;     /* Modal/elevated elements */
+  --daw-bg-input: #191C22;        /* Input fields, recessed areas */
+
+  /* Metallic Text & UI Elements (Premium Feel) */
+  --daw-metal-platinum: #E8E8E8;  /* Primary text, key indicators */
+  --daw-metal-silver: #B8BCC4;    /* Secondary text */
+  --daw-metal-steel: #6B7280;     /* Tertiary text, labels */
+  --daw-metal-iron: #4B5563;      /* Muted text, disabled states */
+
+  /* Luxury Gold Accent (Primary Brand Color) */
+  --daw-gold-bright: #FFD700;     /* Active elements, highlights */
+  --daw-gold-rich: #F4C430;       /* Primary gold */
+  --daw-gold-deep: #C5A028;       /* Hover states */
+  --daw-gold-shadow: rgba(244, 196, 48, 0.25);  /* Glow effects */
+
+  /* Analytical Colors (Data Visualization) */
+  --daw-spectrum-cyan: #00E5FF;   /* Spectral analysis, waveforms */
+  --daw-spectrum-blue: #2196F3;   /* Frequency data, tempo */
+  --daw-spectrum-purple: #9C27B0; /* MFCC, harmonic analysis */
+  --daw-spectrum-magenta: #E91E63;/* Peak detection, key detection */
+  --daw-spectrum-orange: #FF9800; /* Energy, loudness meters */
+
+  /* Functional Status Colors */
+  --daw-success-bright: #00E676;  /* Success, ready states */
+  --daw-success-dim: #00C853;     /* Success backgrounds */
+  --daw-warning-bright: #FFD54F;  /* Warning indicators */
+  --daw-warning-dim: #FFA000;     /* Warning backgrounds */
+  --daw-error-bright: #FF5252;    /* Error, clipping indicators */
+  --daw-error-dim: #D32F2F;       /* Error backgrounds */
+  --daw-info-bright: #40C4FF;     /* Info badges */
+  --daw-info-dim: #0288D1;        /* Info backgrounds */
+
+  /* Metering Colors (VU/Level Meters) */
+  --daw-meter-safe: #00E676;      /* -20dB to -6dB (green zone) */
+  --daw-meter-caution: #FFD54F;   /* -6dB to -3dB (yellow zone) */
+  --daw-meter-warning: #FF9800;   /* -3dB to 0dB (orange zone) */
+  --daw-meter-danger: #FF5252;    /* 0dB+ (red zone - clipping) */
+
+
+  /* ============================================
+     TYPOGRAPHY SYSTEM
+     ============================================ */
+
+  /* Font Families */
+  --font-primary: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Inter', 'SF Pro Display', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  --font-condensed: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+
+  /* Type Scale (rem) */
+  --text-xs: 0.6875rem;      /* 11px - Meter labels, timestamps */
+  --text-sm: 0.8125rem;      /* 13px - Secondary info, badges */
+  --text-base: 0.9375rem;    /* 15px - Body text */
+  --text-lg: 1.0625rem;      /* 17px - Subheadings */
+  --text-xl: 1.375rem;       /* 22px - Card headers */
+  --text-2xl: 1.875rem;      /* 30px - Section headers */
+  --text-3xl: 2.5rem;        /* 40px - Hero values (BPM, Key) */
+  --text-display: 4rem;      /* 64px - Large visualization labels */
+
+  /* Font Weights */
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-black: 900;
+
+  /* Line Heights */
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  /* Letter Spacing */
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.05em;
+  --tracking-widest: 0.1em;
+
+
+  /* ============================================
+     SPACING SYSTEM (8px base grid)
+     ============================================ */
+
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+
+
+  /* ============================================
+     BORDER SYSTEM
+     ============================================ */
+
+  /* Border Widths */
+  --border-thin: 1px;
+  --border-medium: 2px;
+  --border-thick: 3px;
+
+  /* Border Radii */
+  --radius-sm: 4px;       /* Small elements */
+  --radius-md: 6px;       /* Buttons, badges */
+  --radius-lg: 8px;       /* Cards, inputs */
+  --radius-xl: 12px;      /* Large cards */
+  --radius-2xl: 16px;     /* Modals, panels */
+  --radius-full: 9999px;  /* Pills, meters */
+
+  /* Border Colors */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.12);
+  --border-emphasis: rgba(255, 255, 255, 0.20);
+  --border-gold: rgba(244, 196, 48, 0.40);
+
+
+  /* ============================================
+     SHADOW SYSTEM (Depth & Glow)
+     ============================================ */
+
+  /* Depth Shadows (Elevation) */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.7), 0 4px 8px rgba(0, 0, 0, 0.8);
+  --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.8), 0 8px 16px rgba(0, 0, 0, 0.9);
+
+  /* Glow Shadows (Accent Emphasis) */
+  --shadow-glow-gold: 0 0 20px rgba(244, 196, 48, 0.3), 0 0 40px rgba(244, 196, 48, 0.15);
+  --shadow-glow-cyan: 0 0 20px rgba(0, 229, 255, 0.3), 0 0 40px rgba(0, 229, 255, 0.15);
+  --shadow-glow-success: 0 0 16px rgba(0, 230, 118, 0.4);
+  --shadow-glow-error: 0 0 16px rgba(255, 82, 82, 0.4);
+
+  /* Inset Shadows (Recessed Look) */
+  --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  --shadow-inset-deep: inset 0 4px 8px rgba(0, 0, 0, 0.6);
+
+
+  /* ============================================
+     ANIMATION SYSTEM
+     ============================================ */
+
+  /* Durations */
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+  --duration-slower: 500ms;
+
+  /* Easing Functions */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+
+  /* ============================================
+     Z-INDEX LAYERS (Stacking Context)
+     ============================================ */
+
+  --z-base: 0;
+  --z-dropdown: 1000;
+  --z-sticky: 1100;
+  --z-fixed: 1200;
+  --z-modal-backdrop: 1300;
+  --z-modal: 1400;
+  --z-popover: 1500;
+  --z-tooltip: 1600;
+  --z-notification: 1700;
+}
+
+/* ============================================
+   KEYFRAME ANIMATIONS
+   ============================================ */
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.8;
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes rotate-360 {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

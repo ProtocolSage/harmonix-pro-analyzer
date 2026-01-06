@@ -1,0 +1,122 @@
+/* ============================================
+   Harmonix Pro Analyzer - DAW Theme System
+   Phase 0-1: CSS Variables for new dark palette
+   ============================================ */
+
+:root {
+  /* ==========================================
+     Neutral Foundation (DAW-grade dark)
+     ========================================== */
+  --bg-0: #0B0F14;          /* App background (deepest) */
+  --bg-1: #0F1620;          /* Main surface */
+  --bg-2: #141E2A;          /* Raised panels */
+  --bg-3: #1A2634;          /* Hover/active surface */
+
+  --border: #243245;        /* Borders & dividers */
+  --gridline: #1C2A3B;      /* Chart gridlines (subtle) */
+
+  /* ==========================================
+     Text Hierarchy
+     ========================================== */
+  --text-1: #E7EEF8;        /* Primary text */
+  --text-2: #A9B7C9;        /* Secondary text */
+  --text-3: #6F829B;        /* Tertiary text */
+  --text-disabled: #4D5D73; /* Disabled state */
+
+  /* ==========================================
+     Brand Accent (Purple - replaces gold)
+     ========================================== */
+  --accent-brand: #7C5CFF;
+  --accent-brand-soft: rgba(124, 92, 255, 0.2);
+  --accent-brand-glow: rgba(124, 92, 255, 0.4);
+
+  /* ==========================================
+     Analysis Type Accents (Semantic)
+     Use for tabs, legends, badges, line highlights
+     ========================================== */
+  --accent-spectral: #33D6FF;   /* Cyan - Spectral analysis */
+  --accent-mfcc: #4C7DFF;       /* Blue - MFCC */
+  --accent-tempo: #7CFF6B;      /* Lime - Tempo/BPM */
+  --accent-key: #C084FF;        /* Violet - Key/Scale */
+  --accent-dynamics: #FFB84D;   /* Amber - Dynamics/Loudness */
+  --accent-segments: #FF4FD8;   /* Magenta - Segmentation */
+
+  /* ==========================================
+     Semantic Colors
+     ========================================== */
+  --error: #FF4D5E;
+  --warning: #FFC04D;
+  --success: #41E49A;
+
+  /* ==========================================
+     Typography
+     ========================================== */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Roboto Mono', 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+
+  /* Font sizes (Tailwind-friendly) */
+  --text-xs: 0.6875rem;     /* 11px */
+  --text-sm: 0.8125rem;     /* 13px */
+  --text-base: 0.875rem;    /* 14px */
+  --text-lg: 1rem;          /* 16px */
+  --text-xl: 1.125rem;      /* 18px */
+  --text-2xl: 1.25rem;      /* 20px */
+
+  /* Font weights */
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ==========================================
+     Spacing (8px grid system)
+     ========================================== */
+  --space-xs: 0.5rem;       /* 8px */
+  --space-sm: 0.75rem;      /* 12px */
+  --space-md: 1rem;         /* 16px */
+  --space-lg: 1.5rem;       /* 24px */
+  --space-xl: 2rem;         /* 32px */
+  --space-2xl: 3rem;        /* 48px */
+
+  /* ==========================================
+     Border Radii
+     ========================================== */
+  --radius-card: 12px;      /* Panels/cards */
+  --radius-control: 10px;   /* Buttons/inputs */
+  --radius-sm: 6px;         /* Small elements */
+  --radius-full: 9999px;    /* Pills/badges */
+
+  /* ==========================================
+     Shadows (subtle, pro-grade)
+     ========================================== */
+  --shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-focus: 0 0 0 2px var(--accent-brand), 0 0 0 4px var(--accent-brand-soft);
+
+  /* ==========================================
+     Motion & Transitions
+     ========================================== */
+  --duration-fast: 120ms;
+  --duration-standard: 200ms;
+  --duration-slow: 300ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* ==========================================
+     Layout Dimensions (Shell)
+     ========================================== */
+  --shell-topbar-height: 48px;
+  --shell-sidebar-width: 80px;
+  --shell-inspector-width: 380px;
+  --shell-bottom-height: 140px;
+}
+
+/* ==========================================
+   Reduced Motion Support
+   ========================================== */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-standard: 0ms;
+    --duration-slow: 0ms;
+  }
+}
