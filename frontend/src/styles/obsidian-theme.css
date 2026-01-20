@@ -1,0 +1,191 @@
+/* ============================================
+   Obsidian Workstation Visual Refinement
+   "Luxurious Precision" Hardware Aesthetic
+   ============================================ */
+
+:root {
+  /* Obsidian Core */
+  --obsidian-chassis: #0A0B10;
+  --obsidian-rim-highlight: rgba(255, 255, 255, 0.05);
+  --obsidian-inner-shadow: rgba(0, 0, 0, 0.8);
+  --obsidian-well-bg: #050608;
+  
+  /* Jewel Tones (Emission) */
+  --jewel-sapphire: #3B82F6;
+  --jewel-emerald: #10B981;
+  --jewel-amber: #F59E0B;
+  --jewel-ruby: #EF4444;
+  --jewel-amethyst: #8B5CF6;
+
+  /* Default Static Glow */
+  --glow-intensity: 0;
+  --peak-glow: 0;
+  --well-shadow: inset 0 2px 8px var(--obsidian-inner-shadow);
+  --well-rim: 0 1px 0 var(--obsidian-rim-highlight);
+}
+
+/* Light Mode Overrides */
+.light-mode {
+  --obsidian-chassis: #F1F5F9;
+  --obsidian-rim-highlight: rgba(255, 255, 255, 0.8);
+  --obsidian-inner-shadow: rgba(0, 0, 0, 0.1);
+  --obsidian-well-bg: #F8FAFC;
+  
+  --well-shadow: inset 0 2px 4px var(--obsidian-inner-shadow);
+  --well-rim: 0 1px 0 var(--obsidian-rim-highlight);
+}
+
+/* Machined Chassis Base */
+.obsidian-chassis {
+  background-color: var(--obsidian-chassis);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  background-blend-mode: overlay;
+  opacity: 0.98;
+  min-height: 100vh;
+  position: relative;
+  transition: background-color var(--duration-standard) var(--ease);
+}
+
+/* Countersunk Well Wrapper */
+.countersunk-well {
+  background-color: var(--obsidian-well-bg);
+  border-radius: var(--radius-card);
+  box-shadow: 
+    var(--well-shadow),
+    var(--well-rim);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+/* Rim Highlight (Pseudo-element for precision) */
+.countersunk-well::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--obsidian-rim-highlight);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Reactive Bloom (to be driven by JS) */
+.bloom-effect {
+  will-change: filter;
+  filter: drop-shadow(0 0 calc(var(--glow-intensity) * 10px) currentColor);
+  transition: filter 0.1s ease-out;
+}
+
+.peak-bloom {
+  position: absolute;
+  inset: 0;
+  background: var(--jewel-ruby);
+  opacity: calc(var(--peak-glow) * 0.15);
+  pointer-events: none;
+  transition: opacity 0.1s ease-out;
+  z-index: 5;
+}
+
+/* Typography Refinements */
+.lab-readout {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+  font-feature-settings: "tnum" 1, "onum" 1;
+}
+
+.editorial-header {
+  font-family: var(--font-primary);
+  letter-spacing: -0.03em;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+}
+
+/* Hardware Button Refinements */
+.hp-transport-btn {
+  background: linear-gradient(180deg, #2A2B35 0%, #14151A 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  transition: all 0.1s var(--ease) !important;
+}
+
+.hp-transport-btn:hover {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  transform: translateY(-1px);
+}
+
+.hp-transport-btn:active, .hp-transport-btn.is-active {
+  background: #050608 !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8) !important;
+  transform: translateY(1px);
+  color: var(--accent-brand) !important;
+}
+
+.hp-transport-btn--primary {
+  background: linear-gradient(135deg, var(--accent-brand) 0%, #5A3DFF 100%) !important;
+  box-shadow: 
+    0 6px 16px rgba(124, 92, 255, 0.25),
+    0 0 0 4px rgba(124, 92, 255, 0.1) !important;
+}
+
+.hp-transport-btn--primary:hover {
+  box-shadow: 
+    0 8px 20px rgba(124, 92, 255, 0.35),
+    0 0 0 6px rgba(124, 92, 255, 0.15) !important;
+}
+
+/* Obsidian Component Overrides */
+.hp-card, .analysis-panel {
+  background: linear-gradient(135deg, #1A1B23 0%, #0A0B10 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.03) !important;
+  box-shadow: var(--shadow-deep) !important;
+}
+
+.hp-metric-card {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+.hp-tab {
+  text-transform: uppercase !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.1em !important;
+  color: var(--text-3) !important;
+}
+
+.hp-tab.is-active {
+  color: var(--accent-brand) !important;
+  border-bottom-color: var(--accent-brand) !important;
+  text-shadow: 0 0 8px var(--accent-brand-soft);
+}
+
+.hp-inspector-header, .panel-header {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+.hp-label, .hp-section-title {
+  color: var(--text-3) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.05em !important;
+}
+
+.hp-waveform {
+  background: #050608 !important;
+}
+
+.light-mode .hp-card, .light-mode .analysis-panel {
+  background: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+}
+
+.light-mode .hp-metric-card {
+  background: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+}
+

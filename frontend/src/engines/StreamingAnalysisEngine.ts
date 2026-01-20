@@ -1,20 +1,36 @@
-import type { AudioAnalysisResult, AnalysisProgress } from '../types/audio';
+import type { AudioAnalysisResult, AnalysisProgress, FeatureToggles, EngineConfig } from '../types/audio';
 import { PerformanceMonitor, PerformanceCategory } from '../utils/PerformanceMonitor';
+import { warnUnsupportedFeatureToggles } from './featureToggleUtils';
 import { handleAnalysisError, handlePerformanceError } from '../utils/ErrorHandler';
+import { mergeStreamingResults } from './streamingAnalysisCore';
 
 export interface StreamingAnalysisConfig {
   chunkSize: number; // Size of each audio chunk in samples
   overlapSize: number; // Overlap between chunks in samples
   maxFileSize: number; // Maximum file size for streaming analysis
+  frameSize: number;
+  hopSize: number;
   analysisFeatures: {
     spectral: boolean;
     tempo: boolean;
     key: boolean;
     mfcc: boolean;
     onset: boolean;
+    segments: boolean;
+    mlClassification: boolean;
   };
   enableProgressiveResults: boolean; // Return partial results during analysis
   memoryLimit: number; // Memory limit in bytes
+}
+
+export interface StreamingFeatureToggles {
+  spectral?: boolean;
+  tempo?: boolean;
+  key?: boolean;
+  mfcc?: boolean;
+  onset?: boolean;
+  segments?: boolean;
+  mlClassification?: boolean;
 }
 
 export interface StreamingChunk {
@@ -40,12 +56,16 @@ export class StreamingAnalysisEngine {
     chunkSize: 44100 * 10, // 10 seconds at 44.1kHz
     overlapSize: 44100 * 1, // 1 second overlap
     maxFileSize: 100 * 1024 * 1024, // 100MB
+    frameSize: 2048,
+    hopSize: 1024,
     analysisFeatures: {
       spectral: true,
       tempo: true,
       key: true,
       mfcc: true,
-      onset: true
+      onset: true,
+      segments: true,
+      mlClassification: true
     },
     enableProgressiveResults: true,
     memoryLimit: 50 * 1024 * 1024 // 50MB
@@ -57,171 +77,47 @@ export class StreamingAnalysisEngine {
   private chunkResults: Map<number, Partial<AudioAnalysisResult>> = new Map();
   private aggregatedResult: Partial<AudioAnalysisResult> = {};
 
-  constructor(config?: Partial<StreamingAnalysisConfig>) {
+  /**
+   * @param config - Legacy StreamingAnalysisConfig or unified EngineConfig
+   */
+  constructor(config?: Partial<StreamingAnalysisConfig> | EngineConfig) {
     if (config) {
-      this.config = { ...this.config, ...config };
+      // Check if this is an EngineConfig (has backend or featureToggles properties)
+      if ('backend' in config || ('featureToggles' in config && !('chunkSize' in config))) {
+        // Convert EngineConfig to StreamingAnalysisConfig
+        const engineConfig = config as EngineConfig;
+        this.config = {
+          ...this.config,
+          frameSize: engineConfig.frameSize ?? this.config.frameSize,
+          hopSize: engineConfig.hopSize ?? this.config.hopSize,
+          analysisFeatures: {
+            spectral: engineConfig.featureToggles?.spectral ?? true,
+            tempo: engineConfig.featureToggles?.tempo ?? true,
+            key: engineConfig.featureToggles?.key ?? true,
+            mfcc: engineConfig.featureToggles?.mfcc ?? true,
+            onset: engineConfig.featureToggles?.onset ?? true,
+            segments: engineConfig.featureToggles?.segments ?? true,
+            mlClassification: engineConfig.featureToggles?.mlClassification ?? true,
+          },
+        };
+      } else {
+        // Legacy StreamingAnalysisConfig
+        this.config = { ...this.config, ...config as Partial<StreamingAnalysisConfig> };
+      }
     }
     this.initializeWorker();
   }
 
   private async initializeWorker(): Promise<void> {
     try {
-      const workerCode = this.generateWorkerCode();
-      const blob = new Blob([workerCode], { type: 'application/javascript' });
-      const workerUrl = URL.createObjectURL(blob);
-      
-      this.worker = new Worker(workerUrl);
+      this.worker = new Worker(new URL('../workers/streaming-analysis-worker.ts', import.meta.url), {
+        type: 'module'
+      });
       this.worker.onmessage = this.handleWorkerMessage.bind(this);
       this.worker.onerror = (ev: ErrorEvent) => this.handleWorkerError(new Error(ev.message));
-      
-      URL.revokeObjectURL(workerUrl);
     } catch (error) {
       console.error('Failed to initialize streaming worker:', error);
     }
-  }
-
-  private generateWorkerCode(): string {
-    return `
-      let essentia = null;
-      let isInitialized = false;
-      let chunkResults = new Map();
-
-      // Simplified mock implementation for development
-      // In production, this would use real Essentia.js
-      async function initializeEssentia() {
-        // Mock initialization
-        await new Promise(resolve => setTimeout(resolve, 100));
-        isInitialized = true;
-        
-        postMessage({
-          type: 'WORKER_READY',
-          payload: { success: true }
-        });
-      }
-
-      function analyzeChunk(chunkData, chunkIndex, config) {
-        return new Promise((resolve) => {
-          // Simulate chunk analysis
-          setTimeout(() => {
-            const mockResult = {
-              chunkIndex,
-              spectral: config.analysisFeatures.spectral ? {
-                centroid: { mean: 1000 + Math.random() * 1000, std: 100 },
-                rolloff: { mean: 2000 + Math.random() * 1000, std: 200 },
-                flux: { mean: Math.random() * 0.5, std: 0.1 }
-              } : undefined,
-              tempo: config.analysisFeatures.tempo ? {
-                bpm: 80 + Math.random() * 60,
-                confidence: 0.7 + Math.random() * 0.3
-              } : undefined,
-              mfcc: config.analysisFeatures.mfcc ? 
-                Array.from({length: 13}, () => (Math.random() - 0.5) * 10) : undefined
-            };
-            
-            resolve(mockResult);
-          }, 100 + Math.random() * 200);
-        });
-      }
-
-      function aggregateResults(chunkResults) {
-        const results = Array.from(chunkResults.values());
-        if (results.length === 0) return {};
-
-        const aggregated = {};
-
-        // Aggregate spectral features
-        const spectralResults = results.filter(r => r.spectral);
-        if (spectralResults.length > 0) {
-          aggregated.spectral = {
-            centroid: {
-              mean: spectralResults.reduce((sum, r) => sum + r.spectral.centroid.mean, 0) / spectralResults.length,
-              std: Math.sqrt(spectralResults.reduce((sum, r) => sum + Math.pow(r.spectral.centroid.std, 2), 0) / spectralResults.length)
-            },
-            rolloff: {
-              mean: spectralResults.reduce((sum, r) => sum + r.spectral.rolloff.mean, 0) / spectralResults.length,
-              std: Math.sqrt(spectralResults.reduce((sum, r) => sum + Math.pow(r.spectral.rolloff.std, 2), 0) / spectralResults.length)
-            },
-            flux: {
-              mean: spectralResults.reduce((sum, r) => sum + r.spectral.flux.mean, 0) / spectralResults.length,
-              std: Math.sqrt(spectralResults.reduce((sum, r) => sum + Math.pow(r.spectral.flux.std, 2), 0) / spectralResults.length)
-            }
-          };
-        }
-
-        // Aggregate tempo (use most confident result)
-        const tempoResults = results.filter(r => r.tempo);
-        if (tempoResults.length > 0) {
-          const bestTempo = tempoResults.reduce((best, current) => 
-            current.tempo.confidence > best.tempo.confidence ? current : best);
-          aggregated.tempo = bestTempo.tempo;
-        }
-
-        // Aggregate MFCC (average)
-        const mfccResults = results.filter(r => r.mfcc);
-        if (mfccResults.length > 0) {
-          const mfccLength = mfccResults[0].mfcc.length;
-          aggregated.mfcc = Array.from({length: mfccLength}, (_, i) => 
-            mfccResults.reduce((sum, r) => sum + r.mfcc[i], 0) / mfccResults.length
-          );
-        }
-
-        return aggregated;
-      }
-
-      self.onmessage = async function(event) {
-        const { type, payload, id } = event.data;
-
-        switch (type) {
-          case 'ANALYZE_CHUNK':
-            if (!isInitialized) {
-              postMessage({
-                type: 'ERROR',
-                payload: { error: 'Worker not initialized' },
-                id
-              });
-              return;
-            }
-
-            try {
-              const { chunkData, chunkIndex, totalChunks, config } = payload;
-              
-              const chunkResult = await analyzeChunk(chunkData, chunkIndex, config);
-              chunkResults.set(chunkIndex, chunkResult);
-              
-              // Calculate aggregated results
-              const aggregated = aggregateResults(chunkResults);
-              
-              postMessage({
-                type: 'CHUNK_COMPLETE',
-                payload: {
-                  chunkIndex,
-                  totalChunks,
-                  partialResult: chunkResult,
-                  aggregatedResult: aggregated,
-                  isComplete: chunkResults.size === totalChunks,
-                  processingTime: 100 + Math.random() * 200
-                },
-                id
-              });
-
-            } catch (error) {
-              postMessage({
-                type: 'ERROR',
-                payload: { error: error.message, chunkIndex: payload.chunkIndex },
-                id
-              });
-            }
-            break;
-
-          case 'RESET':
-            chunkResults.clear();
-            break;
-        }
-      };
-
-      // Initialize on startup
-      initializeEssentia();
-    `;
   }
 
   private handleWorkerMessage(event: MessageEvent): void {
@@ -245,7 +141,7 @@ export class StreamingAnalysisEngine {
   private handleChunkComplete(result: ProgressiveAnalysisResult): void {
     // Store chunk result
     this.chunkResults.set(result.chunkIndex, result.partialResult);
-    this.aggregatedResult = result.aggregatedResult;
+    this.aggregatedResult = mergeStreamingResults(Array.from(this.chunkResults.values()));
 
     // Notify progress
     if (this.progressCallback) {
@@ -364,7 +260,8 @@ export class StreamingAnalysisEngine {
   public async analyzeFile(
     file: File,
     progressCallback?: (progress: AnalysisProgress) => void,
-    progressiveCallback?: (result: ProgressiveAnalysisResult) => void
+    progressiveCallback?: (result: ProgressiveAnalysisResult) => void,
+    featureToggles?: StreamingFeatureToggles
   ): Promise<AudioAnalysisResult> {
     
     if (this.isAnalyzing) {
@@ -379,6 +276,16 @@ export class StreamingAnalysisEngine {
     this.analysisStartTime = performance.now();
     this.progressCallback = progressCallback ?? null;
     this.progressiveCallback = progressiveCallback ?? null;
+
+    if (featureToggles) {
+      warnUnsupportedFeatureToggles(featureToggles, console.warn, 'StreamingAnalysisEngine');
+      this.updateConfig({
+        analysisFeatures: {
+          ...this.config.analysisFeatures,
+          ...featureToggles,
+        },
+      });
+    }
 
     try {
       // Decode audio file
@@ -417,7 +324,11 @@ export class StreamingAnalysisEngine {
 
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const AudioContextCtor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextCtor) {
+        throw new Error('Web Audio API is not supported in this environment');
+      }
+      const audioContext = new AudioContextCtor();
       
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
       await audioContext.close();
@@ -470,9 +381,12 @@ export class StreamingAnalysisEngine {
         type: 'ANALYZE_CHUNK',
         payload: {
           chunkData: chunk.audioData,
+          sampleRate: chunk.sampleRate,
           chunkIndex: chunk.index,
           totalChunks: chunks.length,
-          config: this.config
+          analysisFeatures: this.config.analysisFeatures,
+          frameSize: this.config.frameSize,
+          hopSize: this.config.hopSize
         },
         id: `chunk-${chunk.index}`
       });
@@ -485,7 +399,7 @@ export class StreamingAnalysisEngine {
   private async waitForMemoryCleanup(): Promise<void> {
     // Force garbage collection if available (Chrome DevTools)
     if ('gc' in window) {
-      (window as any).gc();
+      if (typeof (globalThis as unknown as { gc?: () => void }).gc === 'function') (globalThis as unknown as { gc: () => void }).gc();
     }
     
     // Wait a bit for cleanup
@@ -493,7 +407,14 @@ export class StreamingAnalysisEngine {
   }
 
   public updateConfig(newConfig: Partial<StreamingAnalysisConfig>): void {
-    this.config = { ...this.config, ...newConfig };
+    this.config = {
+      ...this.config,
+      ...newConfig,
+      analysisFeatures: {
+        ...this.config.analysisFeatures,
+        ...(newConfig.analysisFeatures || {}),
+      },
+    };
   }
 
   public getConfig(): StreamingAnalysisConfig {

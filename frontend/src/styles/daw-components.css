@@ -473,6 +473,33 @@
   box-shadow: 0 0 12px var(--daw-gold-shadow);
 }
 
+/* Dimmed tab state (partial data) */
+.daw-tab-dimmed {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  position: relative;
+}
+
+.daw-tab-dimmed:hover {
+  color: var(--daw-metal-steel) !important;
+  background: transparent !important;
+}
+
+.daw-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: var(--space-2);
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+  color: var(--color-warning);
+  background: rgba(255, 193, 7, 0.15);
+  border: 1px solid var(--color-warning);
+  border-radius: 50%;
+}
+
 
 /* ============================================
    UTILITY CLASSES

@@ -1,0 +1,294 @@
+<div class="desk">
+    <div class="panel">
+        <div class="header">
+            <div class="badge">HPA</div>
+            <div class="title">Workstation Transport</div>
+        </div>
+
+        <div class="transport">
+            <button class="btn ghost">⏮</button>
+            <button class="btn primary">▶</button>
+            <button class="btn ghost">⏸</button>
+            <button class="btn ghost">⏹</button>
+            <button class="btn record">●</button>
+        </div>
+
+        <div class="grid">
+            <div class="knob">
+                <div class="knob-ring"></div>
+                <div class="knob-face"></div>
+                <div class="knob-indicator"></div>
+            </div>
+
+            <div class="fader">
+                <div class="fader-track">
+                    <div class="fader-fill"></div>
+                    <div class="fader-thumb"></div>
+                </div>
+            </div>
+
+            <div class="meter">
+                <div class="meter-overlay"></div>
+                <div class="meter-fill" style="width:68%"></div>
+                <div class="meter-lines"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    :root {
+        --bg: #080a0f;
+        --panel-a: #0f131c;
+        --panel-b: #192232;
+        --edge: rgba(255, 255, 255, 0.08);
+        --glow-cool: 0 0 18px rgba(94, 211, 255, 0.45);
+        --glow-warm: 0 0 18px rgba(255, 166, 86, 0.45);
+        --accent: #6ce3ff;
+        --accent-warm: #ffb266;
+        --text: #e8edf7;
+        --radius: 16px;
+        --shadow: 0 22px 60px rgba(0, 0, 0, 0.6);
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        background: radial-gradient(circle at 20% 20%, #111522, #05060b 70%);
+        color: var(--text);
+        font-family: "Inter", system-ui;
+    }
+
+    .desk {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 40px;
+    }
+
+    .panel {
+        position: relative;
+        width: 840px;
+        padding: 24px 26px 30px;
+        border-radius: var(--radius);
+        background:
+            linear-gradient(145deg, rgba(255, 255, 255, 0.05), transparent 40%),
+            linear-gradient(135deg, var(--panel-a), var(--panel-b));
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .panel::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+            linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0, rgba(255, 255, 255, 0) 20%, rgba(255, 255, 255, 0.06) 40%, rgba(255, 255, 255, 0) 60%, rgba(255, 255, 255, 0.06) 80%, rgba(255, 255, 255, 0) 100%),
+            repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0, rgba(255, 255, 255, 0.05) 1px, transparent 3px, transparent 8px);
+        opacity: 0.25;
+        pointer-events: none;
+    }
+
+    .header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .badge {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: linear-gradient(145deg, #1f2a3c, #101624);
+        border: 1px solid var(--edge);
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--accent);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .title {
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: rgba(232, 237, 247, 0.9);
+    }
+
+    .transport {
+        display: grid;
+        grid-auto-flow: column;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .btn {
+        position: relative;
+        min-width: 58px;
+        padding: 12px 16px;
+        border-radius: 12px;
+        border: 1px solid var(--edge);
+        background: linear-gradient(180deg, #0f131c, #111725);
+        color: var(--text);
+        letter-spacing: 0.04em;
+        cursor: pointer;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 20px rgba(0, 0, 0, 0.45);
+        transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, filter 140ms ease;
+    }
+
+    .btn:hover {
+        transform: translateY(-1px) scale(1.01);
+        border-color: rgba(108, 227, 255, 0.6);
+        box-shadow: var(--glow-cool);
+        filter: brightness(1.05);
+    }
+
+    .btn:active {
+        transform: translateY(1px) scale(0.99);
+    }
+
+    .btn.primary {
+        background: linear-gradient(180deg, #7ff1ff, #42c9ff);
+        color: #0a121c;
+        box-shadow: var(--glow-cool);
+    }
+
+    .btn.record {
+        background: linear-gradient(180deg, #ff7b6b, #ff4638);
+        color: #190909;
+        border-color: rgba(255, 120, 100, 0.6);
+        box-shadow: var(--glow-warm);
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: 140px 1fr 200px;
+        gap: 26px;
+        align-items: center;
+    }
+
+    .knob {
+        position: relative;
+        width: 110px;
+        height: 110px;
+        margin: auto;
+    }
+
+    .knob-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08), transparent 55%),
+            conic-gradient(from 220deg, rgba(108, 227, 255, 0.4), rgba(108, 227, 255, 0) 40%, rgba(255, 179, 102, 0.4) 70%, rgba(108, 227, 255, 0.4));
+        filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5));
+    }
+
+    .knob-face {
+        position: absolute;
+        inset: 10px;
+        border-radius: 50%;
+        background:
+            radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.02) 50%, transparent 65%),
+            conic-gradient(from 180deg, #222d40, #0f1422 90%, #222d40 100%);
+        box-shadow: inset 0 2px 8px rgba(255, 255, 255, 0.08), 0 12px 28px rgba(0, 0, 0, 0.55);
+        transition: transform 140ms ease;
+    }
+
+    .knob:hover .knob-face {
+        transform: scale(1.02);
+    }
+
+    .knob-indicator {
+        position: absolute;
+        width: 8px;
+        height: 30px;
+        border-radius: 6px;
+        background: linear-gradient(180deg, #7ff1ff, #42c9ff);
+        top: 14px;
+        left: 50%;
+        transform-origin: 50% 44px;
+        transform: translateX(-50%) rotate(-20deg);
+        box-shadow: var(--glow-cool);
+    }
+
+    .fader {
+        position: relative;
+        height: 120px;
+    }
+
+    .fader-track {
+        position: absolute;
+        left: 50%;
+        top: 6px;
+        bottom: 6px;
+        width: 12px;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #0d1119, #1c2434);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        transform: translateX(-50%);
+    }
+
+    .fader-fill {
+        position: absolute;
+        left: 50%;
+        bottom: 0;
+        width: 6px;
+        height: 60%;
+        border-radius: 6px;
+        background: linear-gradient(180deg, #45f2ff, #49ffb1 60%, #ffb266 100%);
+        transform: translateX(-50%);
+        box-shadow: var(--glow-cool);
+    }
+
+    .fader-thumb {
+        position: absolute;
+        left: 50%;
+        bottom: 60%;
+        width: 38px;
+        height: 18px;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #7ff1ff, #42c9ff);
+        box-shadow: var(--glow-cool), 0 10px 22px rgba(0, 0, 0, 0.45);
+        transform: translate(-50%, 50%);
+        transition: transform 140ms ease;
+    }
+
+    .fader:hover .fader-thumb {
+        transform: translate(-50%, 42%) scale(1.02);
+    }
+
+    .meter {
+        position: relative;
+        height: 22px;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #0f131c, #1a2233);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 24px rgba(0, 0, 0, 0.4);
+        overflow: hidden;
+    }
+
+    .meter-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #3ef0ff, #4dffb4 50%, #ffd96b 75%, #ff6b6b 100%);
+        box-shadow: 0 0 18px rgba(78, 255, 200, 0.35);
+    }
+
+    .meter-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+        pointer-events: none;
+    }
+
+    .meter-lines {
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0, rgba(255, 255, 255, 0.06) 1px, transparent 8px, transparent 12px);
+        opacity: 0.35;
+        pointer-events: none;
+    }
+</style>

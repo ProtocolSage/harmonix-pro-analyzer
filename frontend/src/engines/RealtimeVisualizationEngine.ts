@@ -1,6 +1,7 @@
 import { VisualizationEngine, type VisualizationOptions } from './VisualizationEngine';
 import type { AudioAnalysisResult } from '../types/audio';
 import { PerformanceMonitor, PerformanceCategory } from '../utils/PerformanceMonitor';
+import { getAudioContext } from '../utils/audioContext';
 
 export interface RealtimeVisualizationConfig {
   fps: number;
@@ -28,12 +29,18 @@ export interface AudioVisualizationData {
 export class RealtimeVisualizationEngine {
   protected canvas: HTMLCanvasElement;
   protected ctx: CanvasRenderingContext2D;
-  private audioContext: AudioContext | null = null;
+  private audioContext: AudioContext;
   private analyser: AnalyserNode | null = null;
   private sourceNode: MediaElementAudioSourceNode | null = null;
   private realtimeAnimationId: number | null = null;
   private isRunning = false;
   
+  // Sync Bridge
+  private syncBuffer: SharedArrayBuffer | null = null;
+  private syncView: Float32Array | null = null;
+  private syncPort: MessagePort | null = null;
+  private externalTime = 0;
+
   private config: RealtimeVisualizationConfig = {
     fps: 60,
     smoothing: 0.8,
@@ -66,13 +73,12 @@ export class RealtimeVisualizationEngine {
     }
     
     this.beatTracker = new BeatTracker(this.config.beatSensitivity);
-    this.setupAudioContext();
+    this.audioContext = getAudioContext();
+    this.setupAnalyser();
   }
 
-  private async setupAudioContext(): Promise<void> {
+  private setupAnalyser(): void {
     try {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
       // Create analyser node
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 2048;
@@ -81,21 +87,32 @@ export class RealtimeVisualizationEngine {
       this.analyser.maxDecibels = -10;
       
     } catch (error) {
-      console.error('Failed to create audio context:', error);
+      console.error('Failed to create analyser node:', error);
+    }
+  }
+
+  public setSyncBridge(bridge: { type: 'sab'; buffer: SharedArrayBuffer } | { type: 'channel'; port: MessagePort }): void {
+    if (bridge.type === 'sab') {
+      this.syncBuffer = bridge.buffer;
+      this.syncView = new Float32Array(this.syncBuffer);
+      console.log('🔗 Realtime Viz: Sync bridge set (SAB)');
+    } else {
+      this.syncPort = bridge.port;
+      this.syncPort.onmessage = (e) => {
+        if (e.data.type === 'SYNC_TIME') {
+          this.externalTime = e.data.time;
+        }
+      };
+      console.log('🔗 Realtime Viz: Sync bridge set (MessageChannel)');
     }
   }
 
   public async connectAudioElement(audioElement: HTMLAudioElement): Promise<void> {
-    if (!this.audioContext || !this.analyser) {
-      throw new Error('Audio context not initialized');
+    if (!this.analyser) {
+      throw new Error('Analyser not initialized');
     }
 
     try {
-      // Resume audio context if suspended
-      if (this.audioContext.state === 'suspended') {
-        await this.audioContext.resume();
-      }
-
       // Disconnect previous source
       if (this.sourceNode) {
         this.sourceNode.disconnect();
@@ -112,6 +129,12 @@ export class RealtimeVisualizationEngine {
       console.error('Failed to connect audio element:', error);
       throw error;
     }
+  }
+
+  // Allow connecting any node (like AudioBufferSourceNode output or a GainNode)
+  public connectAudioNode(node: AudioNode): void {
+    if (!this.analyser) return;
+    node.connect(this.analyser);
   }
 
   public setAnalysisData(data: AudioAnalysisResult): void {
@@ -189,7 +212,13 @@ export class RealtimeVisualizationEngine {
       
       // Beat detection
       const beatDetected = this.beatTracker.detectBeat(spectrum, rms);
-      const currentTime = this.audioContext?.currentTime || 0;
+      
+      let currentTime = this.externalTime;
+      if (this.syncView) {
+        currentTime = this.syncView[0];
+      } else if (!this.syncPort) {
+        currentTime = this.audioContext.currentTime;
+      }
       
       // Create visualization data
       const visualizationData: AudioVisualizationData = {

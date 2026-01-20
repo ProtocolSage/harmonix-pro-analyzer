@@ -4,13 +4,11 @@
  */
 
 export type AnalysisMode =
-  | 'waveform'
-  | 'spectrum'
-  | 'mfcc'
-  | 'tempo'
-  | 'key'
-  | 'segments'
-  | 'meters';
+  | 'analyze'
+  | 'visualize'
+  | 'library'
+  | 'history'
+  | 'compare';
 
 export type InspectorTab = 'settings' | 'results';
 
@@ -30,6 +28,8 @@ export interface SidebarProps {
 export interface InspectorProps {
   activeTab?: InspectorTab;
   onTabChange?: (tab: InspectorTab) => void;
+  settingsSlot?: React.ReactNode;
+  resultsSlot?: React.ReactNode;
 }
 
 export interface BottomDockProps {
@@ -37,9 +37,28 @@ export interface BottomDockProps {
   currentTime?: string;
   duration?: string;
   onPlayPause?: () => void;
+  onRewind?: () => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
+  onRepeat?: () => void;
+  transportSlot?: React.ReactNode;
 }
 
 export interface MainStageProps {
+  waveformSlot?: React.ReactNode;
+  panelsSlot?: React.ReactNode;
+  analysisData?: import('./audio').AudioAnalysisResult | null;
+  isAnalyzing?: boolean;
+  playbackTime?: number;
+  playbackDuration?: number;
+  onWaveformSeek?: (time: number) => void;
+  featureToggles?: {
+    keyDetection: boolean;
+    bpmExtraction: boolean;
+    segmentAnalysis: boolean;
+    mlClassification: boolean;
+  };
+  activeMode?: AnalysisMode;
   children?: React.ReactNode;
 }
 

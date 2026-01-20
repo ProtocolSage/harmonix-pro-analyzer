@@ -9,14 +9,17 @@ import { RealEssentiaAudioEngine } from './engines/RealEssentiaAudioEngine';
 import { FileUpload } from './components/FileUpload';
 import { StudioAnalysisResults } from './components/StudioAnalysisResults';
 import { StudioHeader } from './components/StudioHeader';
+import { ComparisonProvider, useComparison } from './contexts/ComparisonContext';
+import { ReferenceTrackLoader } from './components/analysis/ReferenceTrackLoader';
+import { ComparisonRack } from './components/analysis/ComparisonRack';
 import type { EngineStatus, AudioAnalysisResult } from './types/audio';
 
-function App() {
+function AppContent() {
+  const { state: compState, dispatch: compDispatch, toggleComparisonMode } = useComparison();
   const [engineStatus, setEngineStatus] = useState<EngineStatus>({ status: 'initializing' });
   const [engine] = useState(() => new RealEssentiaAudioEngine());
-  const [analysisData, setAnalysisData] = useState<AudioAnalysisResult | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [currentFile, setCurrentFile] = useState<File | null>(null);
 
   useEffect(() => {
     const checkEngineStatus = () => {
@@ -37,9 +40,11 @@ function App() {
   }, [engine]);
 
   const handleFileSelect = useCallback(async (file: File) => {
-    setCurrentFile(file);
+    const audioId = `${file.name}-${file.size}-${file.lastModified}`;
+    compDispatch({ type: 'SET_SOURCE_FILE', payload: { file, audioId } });
+    
     setIsAnalyzing(true);
-    setAnalysisData(null);
+    setAnalysisProgress(null);
 
     try {
       console.log('🎵 Starting analysis for:', file.name);
@@ -47,16 +52,40 @@ function App() {
       // Perform analysis
       const result = await engine.analyzeAudio(file, (progress) => {
         console.log('📊 Progress:', progress);
+        setAnalysisProgress(progress);
       });
 
       console.log('✅ Analysis complete:', result);
-      setAnalysisData(result);
+      const cacheVersion = `${audioId}-${Date.now()}`;
+      compDispatch({ type: 'SET_SOURCE_DATA', payload: { data: result, cacheVersion } });
     } catch (error) {
       console.error('❌ Analysis failed:', error);
       alert(`Analysis Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      compDispatch({ type: 'SET_SLOT_STATUS', payload: { slot: 'source', status: 'error' } });
     } finally {
       setIsAnalyzing(false);
     }
+  }, [engine, compDispatch]);
+
+  const handleReferenceSelect = useCallback(async (file: File) => {
+    const audioId = `${file.name}-${file.size}-${file.lastModified}`;
+    compDispatch({ type: 'SET_REFERENCE_FILE', payload: { file, audioId } });
+
+    try {
+      const result = await engine.analyzeAudio(file, (progress) => {
+        console.log('📊 Reference Progress:', progress);
+      });
+
+      const cacheVersion = `${audioId}-${Date.now()}`;
+      compDispatch({ type: 'SET_REFERENCE_DATA', payload: { data: result, cacheVersion } });
+    } catch (error) {
+      console.error('❌ Reference analysis failed:', error);
+      compDispatch({ type: 'SET_SLOT_STATUS', payload: { slot: 'reference', status: 'error' } });
+    }
+  }, [engine, compDispatch]);
+
+  const handleRetryML = useCallback(() => {
+    engine.retryML();
   }, [engine]);
 
   const getEngineStatusColor = () => {
@@ -116,6 +145,15 @@ function App() {
                     ML Models: {engineStatus.modelsLoaded}/{engineStatus.totalModels}
                   </div>
                 )}
+                {engineStatus.mlStatus?.isUnavailable && (
+                  <button 
+                    onClick={handleRetryML}
+                    className="studio-badge studio-badge-warning"
+                    style={{ marginTop: '8px', cursor: 'pointer', border: 'none' }}
+                  >
+                    ML Unavailable - Retry
+                  </button>
+                )}
               </div>
             </div>
             {engineStatus.message && (
@@ -129,6 +167,9 @@ function App() {
           </div>
         </div>
 
+        {/* Comparison Rack - Appears when mode is active */}
+        <ComparisonRack />
+
         {/* Main Content */}
         <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '32px' }}>
           {/* Left Panel - Upload & Info */}
@@ -137,7 +178,7 @@ function App() {
             <div>
               <h2 className="studio-header" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Radio style={{ width: '24px', height: '24px', color: 'var(--studio-accent-gold)' }} />
-                Audio Input
+                Source Audio
               </h2>
               <FileUpload
                 onFileSelect={handleFileSelect}
@@ -146,8 +187,33 @@ function App() {
               />
             </div>
 
+            {/* Reference Track Panel */}
+            <ReferenceTrackLoader 
+              engineReady={engineStatus.status === 'ready'}
+              onReferenceSelect={handleReferenceSelect}
+            />
+
+            {/* Comparison Mode Toggle */}
+            <div className="studio-card" style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <h3 className="studio-subheader" style={{ margin: 0 }}>Comparison Mode</h3>
+                  <p style={{ fontSize: '11px', color: 'var(--studio-text-tertiary)', marginTop: '4px' }}>
+                    Press 'S' to swap roles
+                  </p>
+                </div>
+                <button 
+                  onClick={() => toggleComparisonMode()}
+                  className={`studio-badge ${compState.isComparisonMode ? 'studio-badge-success' : 'studio-badge-info'}`}
+                  style={{ cursor: 'pointer', border: 'none' }}
+                >
+                  {compState.isComparisonMode ? 'ENABLED' : 'DISABLED'}
+                </button>
+              </div>
+            </div>
+
             {/* Current File Info */}
-            {currentFile && (
+            {compState.source.file && (
               <div className="studio-card studio-fadeIn" style={{ padding: '20px' }}>
                 <h3 className="studio-subheader" style={{ marginBottom: '12px' }}>Current File</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
@@ -161,19 +227,19 @@ function App() {
                       marginLeft: '8px',
                       color: 'var(--studio-text-primary)'
                     }}>
-                      {currentFile.name}
+                      {compState.source.file.name}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--studio-text-tertiary)' }}>Size:</span>
                     <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--studio-text-primary)' }}>
-                      {(currentFile.size / 1024 / 1024).toFixed(2)} MB
+                      {(compState.source.file.size / 1024 / 1024).toFixed(2)} MB
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--studio-text-tertiary)' }}>Type:</span>
                     <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--studio-text-primary)' }}>
-                      {currentFile.type}
+                      {compState.source.file.type}
                     </span>
                   </div>
                 </div>
@@ -206,8 +272,9 @@ function App() {
           {/* Right Panel - Results */}
           <div>
             <StudioAnalysisResults
-              analysisData={analysisData}
+              analysisData={compState.source.analysisData}
               isAnalyzing={isAnalyzing}
+              analysisProgress={analysisProgress}
             />
           </div>
         </div>
@@ -226,6 +293,14 @@ function App() {
         </div>
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <ComparisonProvider>
+      <AppContent />
+    </ComparisonProvider>
   );
 }
 

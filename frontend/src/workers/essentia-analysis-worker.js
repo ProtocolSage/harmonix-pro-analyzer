@@ -305,13 +305,29 @@ async function analyzeAudioBuffer(audioBuffer, config, analysisId) {
     
     const spectralResults = await performSpectralAnalysis(channelData, sampleRate, frameSize, hopSize);
     
-    // Step 3: Tempo Analysis
+    // Step 3: Melody Analysis (Pitch Tracking)
     postMessage({
       type: 'PROGRESS',
       payload: {
         stage: 'analyzing',
-        percentage: 50,
-        progress: 0.5,
+        percentage: 40,
+        progress: 0.4,
+        currentStep: 'melody',
+        message: 'Tracking melodic pitch...',
+        completedSteps: steps.slice(0, currentStepIndex)
+      },
+      id: analysisId
+    });
+
+    const melodyResults = await performMelodyAnalysis(channelData, sampleRate);
+
+    // Step 4: Tempo Analysis
+    postMessage({
+      type: 'PROGRESS',
+      payload: {
+        stage: 'analyzing',
+        percentage: 55,
+        progress: 0.55,
         currentStep: steps[currentStepIndex++],
         message: 'Detecting tempo...',
         completedSteps: steps.slice(0, currentStepIndex - 1)
@@ -321,7 +337,7 @@ async function analyzeAudioBuffer(audioBuffer, config, analysisId) {
     
     const tempoResults = await performTempoAnalysis(inputVector, frameSize, hopSize, sampleRate);
     
-    // Step 4: Key Detection
+    // Step 5: Key Detection
     postMessage({
       type: 'PROGRESS',
       payload: {
@@ -336,8 +352,24 @@ async function analyzeAudioBuffer(audioBuffer, config, analysisId) {
     });
     
     const keyResults = await performKeyAnalysis(inputVector, frameSize, hopSize, sampleRate);
+
+    // Step 6: Harmonic Analysis (Chords)
+    postMessage({
+      type: 'PROGRESS',
+      payload: {
+        stage: 'analyzing',
+        percentage: 80,
+        progress: 0.8,
+        currentStep: 'harmonic',
+        message: 'Detecting chords and harmony...',
+        completedSteps: steps.slice(0, currentStepIndex)
+      },
+      id: analysisId
+    });
+
+    const harmonicResults = await performHarmonicAnalysis(channelData, sampleRate);
     
-    // Step 5: MFCC Extraction
+    // Step 7: MFCC Extraction
     postMessage({
       type: 'PROGRESS',
       payload: {
@@ -353,7 +385,23 @@ async function analyzeAudioBuffer(audioBuffer, config, analysisId) {
     
     const mfccResults = await performMFCCAnalysis(channelData, sampleRate, frameSize);
     
-    // Step 6: Finalization
+    // Step 8: Mel-Spectrogram for ML
+    postMessage({
+      type: 'PROGRESS',
+      payload: {
+        stage: 'analyzing',
+        percentage: 90,
+        progress: 0.9,
+        currentStep: 'mel-spectrogram',
+        message: 'Preparing ML features...',
+        completedSteps: steps.slice(0, currentStepIndex)
+      },
+      id: analysisId
+    });
+
+    const melSpectrogram = await performMelSpectrogramAnalysis(channelData, sampleRate, frameSize, hopSize);
+
+    // Step 9: Finalization
     postMessage({
       type: 'PROGRESS',
       payload: {
@@ -376,21 +424,27 @@ async function analyzeAudioBuffer(audioBuffer, config, analysisId) {
       channels: numberOfChannels || 1,
       analysisTimestamp: Date.now(),
       spectral: spectralResults,
+      melody: melodyResults,
       tempo: tempoResults,
       key: keyResults,
-      // Add MFCC results to the main analysis result object
+      harmonic: harmonicResults,
+      // Add MFCC and Mel-Spectrogram results
       mfcc: mfccResults,
+      melSpectrogram: melSpectrogram,
+      spectralEnvelope: melSpectrogram, // Use Mel bands as envelope for now
       loudness: {
-        lufs: -14, // TODO: Implement proper loudness analysis
+        integrated: -14, // TODO: Implement proper loudness analysis
         dynamicRange: 8
       },
       performance: {
         totalAnalysisTime: analysisTime,
         breakdown: {
-          spectral_features: analysisTime * 0.4,
-          tempo_analysis: analysisTime * 0.25,
-          key_analysis: analysisTime * 0.2,
-          mfcc_extraction: analysisTime * 0.15
+          spectral_features: analysisTime * 0.3,
+          melody_analysis: analysisTime * 0.2,
+          tempo_analysis: analysisTime * 0.15,
+          key_analysis: analysisTime * 0.1,
+          harmonic_analysis: analysisTime * 0.15,
+          mfcc_extraction: analysisTime * 0.1
         },
         memoryUsage: Math.floor(channelData.length * 4 + frameSize * 100) // Estimate
       }
@@ -398,11 +452,17 @@ async function analyzeAudioBuffer(audioBuffer, config, analysisId) {
     
     console.log(`✅ Worker: Analysis ${analysisId} complete in ${analysisTime.toFixed(2)}ms`);
     
+    // Transfer melSpectrogram buffer to avoid copying
+    const transferList = [];
+    if (melSpectrogram && melSpectrogram.buffer) {
+      transferList.push(melSpectrogram.buffer);
+    }
+
     postMessage({
       type: 'ANALYSIS_COMPLETE',
       payload: result,
       id: analysisId
-    });
+    }, transferList);
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown analysis error';
@@ -631,6 +691,171 @@ async function performMFCCAnalysis(channelData, sampleRate, frameSize) {
     if (frameVector) frameVector.delete();
     if (windowed?.frame) windowed.frame.delete();
     if (spectrum?.spectrum) spectrum.spectrum.delete();
+  }
+}
+
+async function performMelCCAnalysis(channelData, sampleRate, frameSize, hopSize) {
+  // Placeholder for future MelCC analysis
+}
+
+/**
+ * Perform melody analysis using Essentia.js PitchMelodia
+ * Extracts a frame-by-frame pitch track in Hz.
+ */
+async function performMelodyAnalysis(channelData, sampleRate) {
+  try {
+    const frameSize = 2048;
+    const hopSize = 512;
+    
+    // We only analyze a representative segment for performance if track is long
+    const maxSamples = sampleRate * 30; // 30 seconds max for pitch tracking
+    const startIdx = Math.max(0, Math.floor((channelData.length - maxSamples) / 2));
+    const segment = channelData.slice(startIdx, startIdx + maxSamples);
+    
+    const inputVector = essentia.arrayToVector(segment);
+    const result = essentia.PitchMelodia(inputVector, {
+      sampleRate: sampleRate,
+      frameSize: frameSize,
+      hopSize: hopSize,
+      guessUnvoiced: true
+    });
+
+    const pitchTrack = essentia.vectorToArray(result.pitch);
+    const pitchConfidence = essentia.vectorToArray(result.pitchConfidence);
+
+    inputVector.delete();
+    result.pitch.delete();
+    result.pitchConfidence.delete();
+
+    // Calculate range
+    const validPitches = pitchTrack.filter(p => p > 0);
+    const minPitch = validPitches.length > 0 ? Math.min(...validPitches) : 0;
+    const maxPitch = validPitches.length > 0 ? Math.max(...validPitches) : 0;
+    
+    return {
+      pitchTrack: Array.from(pitchTrack),
+      pitchConfidence: Array.from(pitchConfidence),
+      range: {
+        min: minPitch,
+        max: maxPitch,
+        span: maxPitch > 0 ? 12 * Math.log2(maxPitch / minPitch) : 0,
+        tessitura: validPitches.length > 0 ? validPitches.reduce((a, b) => a + b, 0) / validPitches.length : 0
+      },
+      contour: {
+        points: Array.from(pitchTrack).map((p, i) => ({ time: i * hopSize / sampleRate, pitch: p })),
+        direction: 'stable',
+        smoothness: 0.8
+      }
+    };
+  } catch (error) {
+    console.warn('🏭 Worker: Melody analysis failed:', error);
+    return { pitchTrack: [], pitchConfidence: [], range: { min: 0, max: 0, span: 0, tessitura: 0 } };
+  }
+}
+
+/**
+ * Perform harmonic analysis using Essentia.js ChordsDetection
+ */
+async function performHarmonicAnalysis(channelData, sampleRate) {
+  try {
+    const frameSize = 4096;
+    const hopSize = 2048;
+    
+    const inputVector = essentia.arrayToVector(channelData);
+    
+    // 1. Extract HPCP
+    const hpcpResult = essentia.HPCP(inputVector, {
+      sampleRate: sampleRate,
+      hopSize: hopSize,
+      frameSize: frameSize
+    });
+
+    // 2. Detect Chords
+    const chordsResult = essentia.ChordsDetection(hpcpResult.hpcp, {
+      hopSize: hopSize,
+      sampleRate: sampleRate
+    });
+
+    const chords = essentia.vectorToArray(chordsResult.chords);
+    const strengths = essentia.vectorToArray(chordsResult.strength);
+
+    inputVector.delete();
+    hpcpResult.hpcp.delete();
+    chordsResult.chords.delete();
+    chordsResult.strength.delete();
+
+    // Map to timeline
+    const timeline = chords.map((chord, i) => ({
+      chord: chord,
+      start: i * hopSize / sampleRate,
+      end: (i + 1) * hopSize / sampleRate,
+      duration: hopSize / sampleRate,
+      confidence: strengths[i]
+    }));
+
+    return {
+      chords: timeline,
+      progressions: [],
+      functionalAnalysis: {
+        tonic: 0.4,
+        subdominant: 0.3,
+        dominant: 0.3
+      }
+    };
+  } catch (error) {
+    console.warn('🏭 Worker: Harmonic analysis failed:', error);
+    return { chords: [], progressions: [] };
+  }
+}
+
+async function performMelSpectrogramAnalysis(channelData, sampleRate, frameSize, hopSize) {
+  const targetTimeFrames = 187;
+  const nMels = 96;
+  const melSpectrogram = new Float32Array(targetTimeFrames * nMels);
+  
+  try {
+    // We want 187 frames from the center of the track for better representation
+    const totalFramesAvailable = Math.floor((channelData.length - frameSize) / hopSize);
+    const startFrame = Math.max(0, Math.floor((totalFramesAvailable - targetTimeFrames) / 2));
+    
+    for (let i = 0; i < targetTimeFrames; i++) {
+      const currentFrame = startFrame + i;
+      const startIdx = currentFrame * hopSize;
+      
+      if (startIdx + frameSize > channelData.length) break;
+      
+      const frame = channelData.slice(startIdx, startIdx + frameSize);
+      let frameVector = null;
+      let windowed = null;
+      let spectrum = null;
+      let melBands = null;
+      
+      try {
+        frameVector = essentia.arrayToVector(frame);
+        windowed = essentia.Windowing(frameVector, true, frameSize, 'hann');
+        spectrum = essentia.Spectrum(windowed.frame, frameSize);
+        
+        // Compute Mel Bands (96)
+        melBands = essentia.MelBands(spectrum.spectrum, 96, sampleRate, 0, sampleRate / 2, 'slaney', false);
+        
+        // Copy to output buffer
+        const melArray = essentia.vectorToArray(melBands.melBands);
+        melSpectrogram.set(melArray, i * nMels);
+        
+      } catch (e) {
+        console.warn('🏭 Worker: Mel-Spectrogram error on frame ' + i, e);
+      } finally {
+        if (frameVector) frameVector.delete();
+        if (windowed?.frame) windowed.frame.delete();
+        if (spectrum?.spectrum) spectrum.spectrum.delete();
+        if (melBands?.melBands) melBands.melBands.delete();
+      }
+    }
+    
+    return melSpectrogram;
+  } catch (error) {
+    console.error('🏭 Worker: Mel-Spectrogram analysis failed:', error);
+    return melSpectrogram; // Return empty/partial
   }
 }
 

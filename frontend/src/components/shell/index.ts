@@ -9,3 +9,4 @@ export { Sidebar } from './Sidebar';
 export { Inspector } from './Inspector';
 export { BottomDock } from './BottomDock';
 export { MainStage } from './MainStage';
+export { CountersunkWell } from './CountersunkWell';

@@ -5,50 +5,97 @@
 
 import type { SidebarProps, AnalysisMode } from '../../types/layout';
 
-const modes: Array<{ id: AnalysisMode; label: string; icon: string }> = [
-  { id: 'waveform', label: 'Waveform', icon: '≋' },
-  { id: 'spectrum', label: 'Spectrum', icon: '▬' },
-  { id: 'mfcc', label: 'MFCC', icon: '▦' },
-  { id: 'tempo', label: 'Tempo', icon: '♪' },
-  { id: 'key', label: 'Key', icon: '♫' },
-  { id: 'segments', label: 'Segments', icon: '▭' },
-  { id: 'meters', label: 'Meters', icon: '▮' },
+const navItems: Array<{ id: AnalysisMode; label: string; icon: string }> = [
+  { id: 'analyze', label: 'Analyze', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
+  { id: 'visualize', label: 'Visualize', icon: 'M3 3v18h18M9 17V9m4 8v-5m4 5v-8' },
+  { id: 'library', label: 'Library', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
+  { id: 'history', label: 'History', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+  { id: 'compare', label: 'Compare', icon: 'M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01' },
 ];
 
-export function Sidebar({ activeMode = 'waveform', onModeChange }: SidebarProps) {
+const actionItems = [
+  {
+    id: 'record',
+    label: 'Record',
+    icon: (
+      <>
+        <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+        <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
+      </>
+    )
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+      </>
+    )
+  }
+];
+
+export function Sidebar({ activeMode = 'analyze', onModeChange }: SidebarProps) {
   return (
     <div className="shell-sidebar">
-      {/* Logo/Brand (top) */}
-      <div className="h-12 flex items-center justify-center border-b border-border">
-        <div className="w-10 h-10 bg-accent-brand rounded-lg flex items-center justify-center">
-          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+      <div className="hp-sidebar-logo">
+        <div className="hp-logo-badge">
+          <svg className="hp-logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9 18V5l12-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="18" cy="16" r="3" />
           </svg>
         </div>
       </div>
 
-      {/* Navigation Modes */}
-      <nav className="flex-1 py-4 flex flex-col gap-1">
-        {modes.map((mode) => (
+      <nav className="hp-sidebar-nav">
+        {navItems.map((item) => (
           <button
-            key={mode.id}
-            onClick={() => onModeChange?.(mode.id)}
-            className={`sidebar-nav-item ${activeMode === mode.id ? 'active' : ''}`}
-            title={mode.label}
+            key={item.id}
+            type="button"
+            onClick={() => onModeChange?.(item.id)}
+            className={`hp-nav-item ${activeMode === item.id ? 'is-active' : ''}`}
+            title={item.label}
+            aria-label={item.label}
           >
-            <span className="text-2xl font-bold">{mode.icon}</span>
+            <svg
+              className="hp-nav-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d={item.icon} />
+            </svg>
+            <span className="hp-nav-label">{item.label}</span>
           </button>
         ))}
       </nav>
 
-      {/* Settings (bottom) */}
-      <div className="p-2 border-t border-border">
-        <button className="sidebar-nav-item" title="Settings">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </button>
+      <div className="hp-sidebar-actions">
+        {actionItems.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className="hp-nav-item"
+            title={item.label}
+            aria-label={item.label}
+          >
+            <svg
+              className="hp-nav-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              {item.icon}
+            </svg>
+            <span className="hp-nav-label">{item.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   );

@@ -1,10 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { RealEssentiaAudioEngine } from './engines/RealEssentiaAudioEngine';
 import { StreamingAnalysisEngine } from './engines/StreamingAnalysisEngine';
 import { FileUpload } from './components/FileUpload';
+import { WaveformVisualizer } from './components/WaveformVisualizer';
 import { StudioAnalysisResults } from './components/StudioAnalysisResults';
 import { TransportControls } from './components/TransportControls';
+import { TransportRack } from './components/transport/TransportRack';
 import { ExportFunctionality } from './components/ExportFunctionality';
+import { ReferenceTrackLoader } from './components/analysis/ReferenceTrackLoader';
+import { ComparisonRack } from './components/analysis/ComparisonRack';
 // Phase 0-1: New shell components
 import { AppShell, TopBar, Sidebar, Inspector, BottomDock, MainStage } from './components/shell';
 // Phase 0-1: Keep old components imported but not rendered (for future migration)
@@ -31,32 +35,51 @@ import { PerformanceMonitor, PerformanceCategory } from './utils/PerformanceMoni
 import { ErrorHandler, handleFileError, handleAnalysisError } from './utils/ErrorHandler';
 import { Settings } from 'lucide-react';
 
-// Main App Content Component (inside NotificationProvider)
+// Context providers
+import { AnalysisProvider, useAnalysis } from './contexts/AnalysisContext';
+import { ComparisonProvider, useComparison } from './contexts/ComparisonContext';
+import { UIProvider, useUI } from './contexts/UIContext';
+import { PlaybackProvider, usePlayback, useFormattedTime } from './contexts/PlaybackContext';
+
+// Main App Content Component (inside Providers)
 function ProductionAppContent() {
-  // Core state
-  const [engineStatus, setEngineStatus] = useState<EngineStatus>({ status: 'initializing' });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [analysisData, setAnalysisData] = useState<AudioAnalysisResult | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
-  const [analysisSteps, setAnalysisSteps] = useState<ProgressStep[]>([]);
+  // Use context hooks instead of useState
+  const analysis = useAnalysis();
+  const comparison = useComparison();
+  const ui = useUI();
+  const playback = usePlayback();
+  const formattedTime = useFormattedTime();
 
-  // UI state
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  // Phase 0-1: New shell state
-  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('settings');
-  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('waveform');
-
-  // System health and monitoring
-  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
-  const [useStreamingAnalysis, setUseStreamingAnalysis] = useState(false);
+  // Local refs for system health (not in context)
+  const systemHealth = useRef<SystemHealth | null>(null);
 
   // Engine references
   const engineRef = useRef<RealEssentiaAudioEngine | null>(null);
   const streamingEngineRef = useRef<StreamingAnalysisEngine | null>(null);
 
   const notifications = useNotificationHelpers();
+
+  // Keep streaming engine config in sync with feature toggles
+  useEffect(() => {
+    if (streamingEngineRef.current) {
+      streamingEngineRef.current.updateConfig({
+        analysisFeatures: {
+          key: analysis.state.analysisSettings.keyDetection,
+          tempo: analysis.state.analysisSettings.bpmExtraction,
+          segments: analysis.state.analysisSettings.segmentAnalysis,
+          spectral: true,
+          mfcc: true,
+          onset: true,
+          mlClassification: analysis.state.analysisSettings.mlClassification,
+        },
+      });
+    }
+  }, [
+    analysis.state.analysisSettings.keyDetection,
+    analysis.state.analysisSettings.bpmExtraction,
+    analysis.state.analysisSettings.segmentAnalysis,
+    analysis.state.analysisSettings.mlClassification
+  ]);
 
   // Initialize engines and health monitoring
   useEffect(() => {
@@ -79,7 +102,8 @@ function ProductionAppContent() {
 
         // Run initial health check
         const health = await HealthCheck.runHealthCheck();
-        setSystemHealth(health);
+        systemHealth.current = health;
+        analysis.updateSystemHealth(health);
 
         // Start auto health monitoring
         HealthCheck.startAutoCheck(300000); // Every 5 minutes
@@ -115,7 +139,8 @@ function ProductionAppContent() {
         ErrorHandler.onError((error) => {
           console.warn('Application error detected:', error);
           HealthCheck.runHealthCheck().then((health) => {
-            setSystemHealth(health);
+            systemHealth.current = health;
+            analysis.updateSystemHealth(health);
           });
         });
 
@@ -147,15 +172,16 @@ function ProductionAppContent() {
       if (!engineRef.current) return;
 
       const status = engineRef.current.getEngineStatus();
-      setEngineStatus(status);
+      analysis.setEngineStatus(status);
 
       // Show notification when engine becomes ready
-      if (status.status === 'ready' && engineStatus.status !== 'ready') {
+      if (status.status === 'ready' && analysis.state.engineStatus.status !== 'ready') {
         notifications.engineReady();
         HealthCheck.runHealthCheck().then((health) => {
-          setSystemHealth(health);
+          systemHealth.current = health;
+          analysis.updateSystemHealth(health);
         });
-      } else if (status.status === 'error' && engineStatus.status !== 'error') {
+      } else if (status.status === 'error' && analysis.state.engineStatus.status !== 'error') {
         notifications.engineError(status.message || 'Unknown engine error');
       }
     };
@@ -164,7 +190,7 @@ function ProductionAppContent() {
     monitorEngine(); // Initial check
 
     return () => clearInterval(interval);
-  }, [engineStatus.status]);
+  }, [analysis.state.engineStatus.status]);
 
   // Initialize analysis steps
   const initializeAnalysisSteps = useCallback((): ProgressStep[] => [
@@ -219,9 +245,14 @@ function ProductionAppContent() {
         throw new Error('File too large (max 200MB)');
       }
 
+      const audioId = `${file.name}-${file.size}-${file.lastModified}`;
+      comparison.dispatch({ type: 'SET_SOURCE_FILE', payload: { file, audioId } });
+
       // Check if streaming analysis is needed
       const shouldUseStreaming = file.size > 50 * 1024 * 1024; // 50MB threshold
-      setUseStreamingAnalysis(shouldUseStreaming);
+      if (shouldUseStreaming !== analysis.state.useStreamingAnalysis) {
+        analysis.toggleStreamingAnalysis();
+      }
 
       if (shouldUseStreaming) {
         notifications.info(
@@ -231,13 +262,13 @@ function ProductionAppContent() {
         );
       }
 
-      setSelectedFile(file);
-      setAnalysisData(null);
+      analysis.setFile(file);
+      playback.reset();
       notifications.fileUploaded(file.name);
 
       // Auto-start analysis
       setTimeout(() => {
-        if (engineStatus.status === 'ready') {
+        if (analysis.state.engineStatus.status === 'ready') {
           startAnalysis();
         }
       }, 100);
@@ -247,10 +278,41 @@ function ProductionAppContent() {
     } finally {
       PerformanceMonitor.endTiming(timingId);
     }
-  }, [notifications, engineStatus.status]);
+  }, [notifications, analysis, playback, comparison]);
+
+  // Handle reference file selection
+  const handleReferenceSelect = useCallback(async (file: File) => {
+    const audioId = `${file.name}-${file.size}-${file.lastModified}`;
+    comparison.dispatch({ type: 'SET_REFERENCE_FILE', payload: { file, audioId } });
+
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    try {
+      const result = await engine.analyzeFile(file, {
+        includeAdvanced: true,
+        featureToggles: {
+          key: true,
+          tempo: true,
+          segments: true,
+          spectral: true,
+        }
+      });
+
+      const cacheVersion = `${audioId}-${Date.now()}`;
+      comparison.dispatch({ type: 'SET_REFERENCE_DATA', payload: { data: result, cacheVersion } });
+      notifications.success('Reference Track Ready', `Analyzed ${file.name}`);
+    } catch (error) {
+      console.error('Reference analysis failed:', error);
+      comparison.dispatch({ type: 'SET_SLOT_STATUS', payload: { slot: 'reference', status: 'error' } });
+      notifications.error('Reference Analysis Failed', (error as Error).message);
+    }
+  }, [comparison, notifications]);
 
   // Start analysis with appropriate engine
   const startAnalysis = useCallback(async () => {
+    const { selectedFile, engineStatus, isAnalyzing, useStreamingAnalysis, analysisSettings } = analysis.state;
+
     if (!selectedFile || engineStatus.status !== 'ready' || isAnalyzing) return;
 
     const engine = useStreamingAnalysis ? streamingEngineRef.current : engineRef.current;
@@ -259,11 +321,9 @@ function ProductionAppContent() {
       return;
     }
 
-    setIsAnalyzing(true);
-    setAnalysisData(null);
-    setAnalysisProgress(null);
-    const steps = initializeAnalysisSteps();
-    setAnalysisSteps(steps);
+    analysis.startAnalysis();
+
+    const audioId = `${selectedFile.name}-${selectedFile.size}-${selectedFile.lastModified}`;
 
     const analysisTimingId = PerformanceMonitor.startTiming(
       'analysis.complete',
@@ -278,46 +338,43 @@ function ProductionAppContent() {
     try {
       // Progress callback
       const progressCallback = (progress: AnalysisProgress) => {
-        setAnalysisProgress(progress);
-
-        // Update step status based on progress
-        setAnalysisSteps(currentSteps =>
-          currentSteps.map(step => {
-            if (progress.currentStep === step.id) {
-              return {
-                ...step,
-                status: 'active',
-                progress: Math.round(progress.progress * 100)
-              };
-            } else if (progress.completedSteps.includes(step.id)) {
-              return { ...step, status: 'completed' };
-            }
-            return step;
-          })
-        );
+        analysis.updateProgress(progress);
       };
 
       let result: AudioAnalysisResult;
+
+      const featureToggles = {
+        key: analysisSettings.keyDetection,
+        tempo: analysisSettings.bpmExtraction,
+        segments: analysisSettings.segmentAnalysis,
+        mlClassification: analysisSettings.mlClassification,
+        spectral: true,
+        mfcc: true,
+        onset: true,
+      };
 
       if (useStreamingAnalysis && streamingEngineRef.current) {
         // Use streaming analysis for large files
         result = await streamingEngineRef.current.analyzeFile(
           selectedFile,
-          progressCallback
+          progressCallback,
+          undefined,
+          featureToggles
         );
       } else if (engineRef.current) {
-        // Use standard analysis
-        result = await engineRef.current.analyzeAudio(selectedFile, progressCallback);
+        // Use standard analysis (Essentia)
+        result = await engineRef.current.analyzeFile(selectedFile, {
+          progressCallback,
+          includeAdvanced: analysisSettings.mlClassification || analysisSettings.segmentAnalysis,
+          featureToggles,
+        });
       } else {
         throw new Error('No analysis engine available');
       }
 
-      // Mark all steps as completed
-      setAnalysisSteps(currentSteps =>
-        currentSteps.map(step => ({ ...step, status: 'completed' }))
-      );
-
-      setAnalysisData(result);
+      analysis.completeAnalysis(result);
+      const cacheVersion = `${audioId}-${Date.now()}`;
+      comparison.dispatch({ type: 'SET_SOURCE_DATA', payload: { data: result, cacheVersion } });
       notifications.analysisComplete(selectedFile.name);
 
       // Record successful analysis
@@ -335,14 +392,7 @@ function ProductionAppContent() {
     } catch (error) {
       console.error('Analysis failed:', error);
 
-      // Mark current step as error
-      setAnalysisSteps(currentSteps =>
-        currentSteps.map(step =>
-          step.status === 'active'
-            ? { ...step, status: 'error' }
-            : step
-        )
-      );
+      analysis.errorAnalysis(error instanceof Error ? error.message : 'Unknown error');
 
       handleAnalysisError(error as Error, 'complete-analysis', {
         fileSize: selectedFile.size,
@@ -354,71 +404,272 @@ function ProductionAppContent() {
         error instanceof Error ? error.message : 'Unknown error'
       );
     } finally {
-      setIsAnalyzing(false);
-      setAnalysisProgress(null);
       PerformanceMonitor.endTiming(analysisTimingId);
     }
-  }, [selectedFile, engineStatus.status, isAnalyzing, useStreamingAnalysis, initializeAnalysisSteps, notifications]);
+  }, [analysis, notifications]);
 
-  // Phase 0-1: Format timecode for display
-  const formatTime = (seconds?: number): string => {
-    if (!seconds) return '00:00.000';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds % 1) * 1000);
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
-  };
+  const handlePlayPause = useCallback(() => {
+    playback.togglePlayPause();
+  }, [playback]);
 
-  const currentTime = formatTime(analysisData?.duration ? analysisData.duration * 0.3 : 0);
-  const totalDuration = formatTime(analysisData?.duration);
+  const handleSeekRelative = useCallback((deltaSeconds: number) => {
+    const newTime = Math.max(0, (playback.state.pendingSeek ?? playback.state.currentTime) + deltaSeconds);
+    playback.setPendingSeek(newTime);
+  }, [playback]);
+
+  const handleRepeatToggle = useCallback(() => {
+    playback.toggleRepeat();
+  }, [playback]);
+
+  const settingsSlot = (
+    <div className="hp-inspector-stack">
+      {/* Reference Track Loader */}
+      <ReferenceTrackLoader 
+        engineReady={analysis.state.engineStatus.status === 'ready'}
+        onReferenceSelect={handleReferenceSelect}
+      />
+
+      <div className="hp-field">
+        <label className="hp-label" htmlFor="hp-algorithm">Algorithm</label>
+        <select
+          id="hp-algorithm"
+          className="hp-select"
+          value="Essentia"
+          disabled={analysis.state.isAnalyzing}
+        >
+          <option value="Essentia">Essentia</option>
+          <option value="Librosa">Librosa (coming soon)</option>
+        </select>
+      </div>
+
+      <div className="hp-field">
+        <label className="hp-label" htmlFor="hp-window">Window Size</label>
+        <select
+          id="hp-window"
+          className="hp-select"
+          value={2048}
+          disabled={analysis.state.isAnalyzing}
+        >
+          <option value={2048}>2048</option>
+          <option value={4096}>4096</option>
+        </select>
+      </div>
+
+      <div className="hp-field">
+        <label className="hp-label" htmlFor="hp-hop">Hop Size</label>
+        <select
+          id="hp-hop"
+          className="hp-select"
+          value={512}
+          disabled={analysis.state.isAnalyzing}
+        >
+          <option value={512}>512</option>
+          <option value={1024}>1024</option>
+        </select>
+      </div>
+
+      <div className="hp-toggle-list">
+        {[
+          { key: 'keyDetection' as const, label: 'Key Detection' },
+          { key: 'bpmExtraction' as const, label: 'BPM Extraction' },
+          { key: 'segmentAnalysis' as const, label: 'Segment Analysis' },
+          { key: 'mlClassification' as const, label: 'ML Classification' },
+        ].map((item) => (
+          <div key={item.key} className="hp-toggle-row">
+            <span className="hp-toggle-label">{item.label}</span>
+            <button
+              type="button"
+              className={`hp-toggle ${analysis.state.analysisSettings[item.key] ? 'is-on' : ''}`}
+              aria-pressed={!!analysis.state.analysisSettings[item.key]}
+              disabled={analysis.state.isAnalyzing}
+              onClick={() => analysis.updateSetting(item.key, !analysis.state.analysisSettings[item.key])}
+            >
+              <span className="hp-toggle-knob" />
+            </button>
+          </div>
+        ))}
+        
+        {/* Appearance Settings */}
+        <div className="daw-divider opacity-20" />
+        
+        <div className="hp-toggle-row">
+          <span className="hp-toggle-label">Precision Mode</span>
+          <button
+            type="button"
+            className={`hp-toggle ${ui.state.precisionOnlyMode ? 'is-on' : ''}`}
+            aria-pressed={ui.state.precisionOnlyMode}
+            onClick={() => ui.togglePrecisionMode()}
+            title="Disables inertial momentum for controls"
+          >
+            <span className="hp-toggle-knob" />
+          </button>
+        </div>
+      </div>
+
+      <div className="hp-status-card">
+        <div className="hp-status-title">
+          <span className="hp-status-dot" />
+          {analysis.state.engineStatus.status === 'ready' ? 'Engine Ready' : 'Initializing...'}
+        </div>
+        <div className="hp-status-subtitle">
+          {analysis.state.engineStatus.status === 'ready'
+            ? `Models: ${analysis.state.engineStatus.modelsLoaded ?? 4}/${analysis.state.engineStatus.totalModels ?? 4} loaded`
+            : 'Loading Essentia models'}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <AppShell>
       {/* TopBar */}
       <TopBar
-        projectName={selectedFile?.name || 'Song_Analysis_Project'}
-        currentTime={currentTime}
-        duration={totalDuration}
-        activeTab={inspectorTab}
-        onTabChange={setInspectorTab}
+        projectName={analysis.state.selectedFile?.name || 'Song_Analysis_Project'}
+        currentTime={formattedTime.current}
+        duration={formattedTime.duration}
+        activeTab={ui.state.inspectorTab}
+        onTabChange={ui.setInspectorTab}
       />
 
       {/* Sidebar */}
       <Sidebar
-        activeMode={analysisMode}
-        onModeChange={setAnalysisMode}
+        activeMode={ui.state.analysisMode}
+        onModeChange={ui.setAnalysisMode}
       />
 
       {/* Main Stage */}
-      <MainStage>
-        {/* Phase 0-1: Placeholders rendered by MainStage component */}
-        {/* Future: Real waveform + analysis panels will go here */}
-      </MainStage>
+      <MainStage
+        waveformSlot={
+          analysis.state.selectedFile ? (
+            <WaveformVisualizer
+              audioFile={analysis.state.selectedFile}
+              currentTime={playback.state.currentTime}
+              isPlaying={playback.state.isPlaying}
+              onSeek={(time) => playback.setPendingSeek(time)}
+            />
+          ) : (
+            <FileUpload
+              onFileSelect={handleFileSelect}
+              isProcessing={analysis.state.isAnalyzing}
+              engineReady={analysis.state.engineStatus.status === 'ready'}
+            />
+          )
+        }
+        panelsSlot={useMemo(() => {
+          const renderPanelsForMode = (mode: AnalysisMode) => {
+            switch (mode) {
+              case 'visualize':
+                return (
+                  <div className="flex flex-col gap-6">
+                    <ComparisonRack />
+                    <StudioAnalysisResults
+                      analysisData={analysis.state.analysisData}
+                      isAnalyzing={analysis.state.isAnalyzing}
+                    />
+                  </div>
+                );
+              case 'analyze':
+              default:
+                return (
+                  <div className="flex flex-col gap-6">
+                    <ComparisonRack />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '24px' }}>
+                      <ExportFunctionality
+                        analysisData={analysis.state.analysisData}
+                        audioFile={analysis.state.selectedFile}
+                        isAnalyzing={analysis.state.isAnalyzing}
+                      />
+                      <TransportRack 
+                        volume={playback.state.volume}
+                        onVolumeChange={playback.setVolume}
+                        playbackRate={playback.state.playbackRate}
+                        onPlaybackRateChange={playback.setPlaybackRate}
+                        isDisabled={!analysis.state.selectedFile}
+                      />
+                    </div>
+                  </div>
+                );
+            }
+          };
+
+          return (
+            <div key={ui.state.analysisMode} className="hp-panels hp-fade-in">
+              {renderPanelsForMode(ui.state.analysisMode)}
+            </div>
+          );
+        }, [ui.state.analysisMode, analysis.state.analysisData, analysis.state.isAnalyzing, analysis.state.selectedFile])}
+        analysisData={analysis.state.analysisData}
+        isAnalyzing={analysis.state.isAnalyzing}
+        playbackTime={playback.state.currentTime}
+        playbackDuration={playback.state.duration || analysis.state.analysisData?.duration || 0}
+        onWaveformSeek={(time) => playback.setPendingSeek(time)}
+        featureToggles={{
+          keyDetection: analysis.state.analysisSettings.keyDetection,
+          bpmExtraction: analysis.state.analysisSettings.bpmExtraction,
+          segmentAnalysis: analysis.state.analysisSettings.segmentAnalysis,
+          mlClassification: analysis.state.analysisSettings.mlClassification,
+        }}
+      />
 
       {/* Inspector */}
       <Inspector
-        activeTab={inspectorTab}
-        onTabChange={setInspectorTab}
+        activeTab={ui.state.inspectorTab}
+        onTabChange={ui.setInspectorTab}
+        settingsSlot={settingsSlot}
+        resultsSlot={
+          <StudioAnalysisResults
+            analysisData={analysis.state.analysisData}
+            isAnalyzing={analysis.state.isAnalyzing}
+          />
+        }
       />
 
       {/* Bottom Dock */}
       <BottomDock
-        isPlaying={false}
-        currentTime={currentTime}
-        duration={totalDuration}
-        onPlayPause={() => {}}
+        isPlaying={playback.state.isPlaying}
+        currentTime={formattedTime.current}
+        duration={formattedTime.duration}
+        onPlayPause={handlePlayPause}
+        onRewind={() => handleSeekRelative(-10)}
+        onPrevious={() => handleSeekRelative(-10)}
+        onNext={() => handleSeekRelative(10)}
+        onRepeat={handleRepeatToggle}
+        transportSlot={
+          analysis.state.selectedFile ? (
+            <TransportControls
+              audioFile={analysis.state.selectedFile}
+              isAnalyzing={analysis.state.isAnalyzing}
+              analysisData={analysis.state.analysisData}
+              compact
+              enableRealtimeVisualization
+              onPlaybackProgress={(time, duration) => {
+                playback.updateTime(time);
+                // Duration is managed by PlaybackContext via audioBuffer
+              }}
+              onPlaybackStateChange={(playing) => {
+                if (playing && !playback.state.isPlaying) {
+                  playback.play();
+                } else if (!playing && playback.state.isPlaying) {
+                  playback.pause();
+                }
+              }}
+              seekToTime={playback.state.pendingSeek}
+              onSeekApplied={() => playback.setPendingSeek(null)}
+            />
+          ) : undefined
+        }
       />
 
       {/* Settings Modal */}
-      {showSettingsModal && (
-        <div className="daw-modal-overlay" onClick={() => setShowSettingsModal(false)}>
+      {ui.state.showSettingsModal && (
+        <div className="daw-modal-overlay" onClick={() => ui.hideSettingsModal()}>
           <div className="daw-modal" onClick={(e) => e.stopPropagation()}>
             <div className="daw-modal-header">
               <h3 className="daw-modal-title">
                 <Settings style={{ width: '20px', height: '20px' }} />
                 Advanced Settings
               </h3>
-              <button className="daw-btn-icon daw-btn-ghost" onClick={() => setShowSettingsModal(false)}>
+              <button className="daw-btn-icon daw-btn-ghost" onClick={() => ui.hideSettingsModal()}>
                 ×
               </button>
             </div>
@@ -430,8 +681,8 @@ function ProductionAppContent() {
                 <label className="daw-checkbox-label">
                   <input
                     type="checkbox"
-                    checked={useStreamingAnalysis}
-                    onChange={(e) => setUseStreamingAnalysis(e.target.checked)}
+                    checked={analysis.state.useStreamingAnalysis}
+                    onChange={() => analysis.toggleStreamingAnalysis()}
                     className="daw-checkbox"
                   />
                   <span>Force streaming analysis (for large files)</span>
@@ -439,17 +690,17 @@ function ProductionAppContent() {
               </div>
 
               {/* System Health */}
-              {systemHealth && (
+              {analysis.state.systemHealth && (
                 <div className="daw-settings-section">
                   <h4 className="daw-settings-heading">System Health</h4>
                   <div className="daw-health-grid">
                     <div className="daw-health-item">
                       <span className="daw-health-label">Overall Status</span>
                       <span className={`daw-badge daw-badge-${
-                        systemHealth.overall === 'healthy' ? 'success' :
-                        systemHealth.overall === 'degraded' ? 'warning' : 'error'
+                        analysis.state.systemHealth.overall === 'healthy' ? 'success' :
+                        analysis.state.systemHealth.overall === 'degraded' ? 'warning' : 'error'
                       }`}>
-                        {systemHealth.overall} ({systemHealth.score}%)
+                        {analysis.state.systemHealth.overall} ({analysis.state.systemHealth.score}%)
                       </span>
                     </div>
                     <div className="daw-health-item">
@@ -469,7 +720,10 @@ function ProductionAppContent() {
                 <h4 className="daw-settings-heading">Quick Actions</h4>
                 <div className="daw-settings-actions">
                   <button
-                    onClick={() => HealthCheck.runHealthCheck().then(setSystemHealth)}
+                    onClick={() => HealthCheck.runHealthCheck().then((health) => {
+                      systemHealth.current = health;
+                      analysis.updateSystemHealth(health);
+                    })}
                     className="daw-btn-secondary"
                   >
                     Refresh Health Check
@@ -494,7 +748,15 @@ function ProductionAppContent() {
 function ProductionApp() {
   return (
     <NotificationProvider maxNotifications={5}>
-      <ProductionAppContent />
+      <AnalysisProvider>
+        <ComparisonProvider>
+          <UIProvider>
+            <PlaybackProvider>
+              <ProductionAppContent />
+            </PlaybackProvider>
+          </UIProvider>
+        </ComparisonProvider>
+      </AnalysisProvider>
     </NotificationProvider>
   );
 }

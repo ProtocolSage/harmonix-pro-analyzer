@@ -1,0 +1,354 @@
+/**
+ * Professional Polish Layer
+ * Adds depth, shadows, micro-interactions, and premium feel
+ */
+
+/* ============================================
+   ENHANCED DEPTH & SHADOWS
+   ============================================ */
+
+/* Better shadow system */
+:root {
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.5);
+  --shadow-deep: 0 8px 32px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.6);
+  --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+
+  /* Glow effects */
+  --glow-brand: 0 0 20px rgba(124, 92, 255, 0.3);
+  --glow-spectral: 0 0 20px rgba(51, 214, 255, 0.3);
+  --glow-success: 0 0 20px rgba(65, 228, 154, 0.3);
+
+  /* Glassmorphic backdrop */
+  --glass-bg: rgba(20, 30, 42, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: blur(20px);
+}
+
+/* ============================================
+   ENHANCED TYPOGRAPHY
+   ============================================ */
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+/* Better number rendering */
+.font-mono {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ============================================
+   ENHANCED SHELL COMPONENTS
+   ============================================ */
+
+/* TopBar - Add subtle depth */
+.shell-topbar {
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: saturate(180%) blur(20px);
+  background: rgba(15, 22, 32, 0.95);
+}
+
+/* Sidebar - Premium feel */
+.shell-sidebar {
+  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(180deg, var(--bg-1) 0%, rgba(11, 15, 20, 0.98) 100%);
+}
+
+.sidebar-nav-item {
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-nav-item:hover {
+  transform: translateX(2px);
+  box-shadow: inset 3px 0 0 0 var(--accent-brand);
+}
+
+.sidebar-nav-item.active {
+  background: linear-gradient(90deg,
+    var(--accent-brand-soft) 0%,
+    transparent 100%
+  );
+  box-shadow: inset 3px 0 0 0 var(--accent-brand);
+}
+
+.sidebar-nav-item.active::before {
+  box-shadow: var(--glow-brand);
+}
+
+/* Main Stage - Better container */
+.shell-main {
+  padding: 20px;
+  gap: 20px;
+}
+
+/* Waveform Region - Premium card */
+.waveform-region > div {
+  box-shadow: var(--shadow-medium);
+  background: linear-gradient(135deg, var(--bg-2) 0%, var(--bg-1) 100%);
+  border-color: rgba(255, 255, 255, 0.06);
+  transition: all 200ms ease;
+}
+
+.waveform-region > div:hover {
+  box-shadow: var(--shadow-deep);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Analysis Panels - Enhanced depth */
+.analysis-panel {
+  box-shadow: var(--shadow-medium);
+  background: linear-gradient(135deg, var(--bg-2) 0%, rgba(15, 22, 32, 0.95) 100%);
+  border-color: rgba(255, 255, 255, 0.06);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.analysis-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+}
+
+.analysis-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-deep);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.panel-header {
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    transparent 100%
+  );
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.panel-header h3 {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* Inspector - Premium sidebar */
+.shell-inspector {
+  box-shadow: -2px 0 16px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(180deg, var(--bg-1) 0%, rgba(15, 22, 32, 0.98) 100%);
+  border-left-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Bottom Dock - Professional transport */
+.shell-bottom {
+  box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(180deg, rgba(15, 22, 32, 0.98) 0%, var(--bg-1) 100%);
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+/* ============================================
+   ENHANCED INTERACTIVE ELEMENTS
+   ============================================ */
+
+/* Better button states */
+button {
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* Focus states */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent-brand);
+  outline-offset: 2px;
+  box-shadow: var(--glow-brand);
+}
+
+/* ============================================
+   MICRO-INTERACTIONS
+   ============================================ */
+
+/* Subtle shimmer on panels */
+@keyframes panel-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.analysis-panel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.03) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  animation: panel-shimmer 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Smooth hover transitions */
+.transition-smooth {
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
+   ENHANCED SCROLLBARS
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-1);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg,
+    rgba(124, 92, 255, 0.4) 0%,
+    rgba(124, 92, 255, 0.2) 100%
+  );
+  border-radius: 5px;
+  border: 2px solid var(--bg-1);
+  transition: all 150ms ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg,
+    rgba(124, 92, 255, 0.6) 0%,
+    rgba(124, 92, 255, 0.4) 100%
+  );
+  box-shadow: var(--glow-brand);
+}
+
+/* ============================================
+   GLASSMORPHIC EFFECTS
+   ============================================ */
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-medium);
+}
+
+.glass-intense {
+  background: rgba(20, 30, 42, 0.95);
+  backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   PREMIUM GRADIENTS
+   ============================================ */
+
+.gradient-brand {
+  background: linear-gradient(135deg,
+    var(--accent-brand) 0%,
+    var(--accent-mfcc) 100%
+  );
+}
+
+.gradient-spectral {
+  background: linear-gradient(135deg,
+    var(--accent-spectral) 0%,
+    var(--accent-mfcc) 50%,
+    var(--accent-key) 100%
+  );
+}
+
+.gradient-mesh {
+  background:
+    radial-gradient(at 0% 0%, rgba(124, 92, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(51, 214, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(192, 132, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(124, 255, 107, 0.1) 0%, transparent 50%);
+}
+
+/* ============================================
+   TEXT EFFECTS
+   ============================================ */
+
+.text-glow {
+  text-shadow: 0 0 10px currentColor;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg,
+    var(--accent-brand) 0%,
+    var(--accent-spectral) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================
+   PREMIUM BORDERS
+   ============================================ */
+
+.border-gradient {
+  position: relative;
+}
+
+.border-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg,
+    rgba(124, 92, 255, 0.4) 0%,
+    rgba(51, 214, 255, 0.4) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes subtle-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-float {
+  animation: subtle-float 3s ease-in-out infinite;
+}
+/* FORCE CSS RELOAD */

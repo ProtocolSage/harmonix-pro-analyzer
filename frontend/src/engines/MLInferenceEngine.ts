@@ -9,6 +9,20 @@
 
 import * as tf from '@tensorflow/tfjs';
 
+// Strict interface for TensorFlow model info
+interface TFModelInfo {
+  name: string;
+  shape?: number[];
+  dtype: tf.DataType;
+}
+
+// Extended interface for GraphModel to include inputs/outputs properties
+// effectively removing the need for 'any' casting
+interface TFGraphModel extends tf.GraphModel {
+  inputs: TFModelInfo[];
+  outputs: TFModelInfo[];
+}
+
 export interface MLPredictionResult {
   genre?: {
     genre: string;
@@ -119,12 +133,12 @@ export class MLInferenceEngine {
 
         // Log input/output shapes for debugging
         console.log('📊 Model I/O Shapes:');
-        console.log('   Inputs:', (musicnnModel as any).inputs?.map((i: any) => ({
+        console.log('   Inputs:', (musicnnModel as unknown as TFGraphModel).inputs?.map((i: TFModelInfo) => ({
           name: i.name,
           shape: i.shape,
           dtype: i.dtype
         })));
-        console.log('   Outputs:', (musicnnModel as any).outputs?.map((o: any) => ({
+        console.log('   Outputs:', (musicnnModel as unknown as TFGraphModel).outputs?.map((o: TFModelInfo) => ({
           name: o.name,
           shape: o.shape,
           dtype: o.dtype
@@ -368,7 +382,7 @@ export class MLInferenceEngine {
 
       // If model expects [1, 96, 187], we need to transpose
       // This will be confirmed by the console logs at model load time
-      const modelInput = (model as any).inputs?.[0];
+      const modelInput = (model as tf.GraphModel).inputs?.[0];
       if (modelInput && modelInput.shape) {
         const expectedShape = modelInput.shape;
         console.log('🔍 Model expects shape:', expectedShape, 'providing:', batched.shape);

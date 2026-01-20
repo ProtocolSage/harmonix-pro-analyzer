@@ -1,17 +1,28 @@
 import type {
   AudioAnalysisResult,
   AnalysisProgress,
-  EngineStatus
+  EngineStatus,
+  AnalysisOptions,
+  FeatureToggles,
+  MelodyAnalysis,
+  HarmonicAnalysis,
+  RhythmAnalysis
 } from '../types/audio';
+import { warnUnsupportedFeatureToggles, SUPPORTED_FEATURE_TOGGLES } from './featureToggleUtils';
 
-import Essentia from 'essentia.js/dist/essentia.js-core.es.js';
+
 import { EssentiaWASM } from 'essentia.js/dist/essentia-wasm.es.js';
+import Essentia from 'essentia.js/dist/essentia.js-core.es.js';
+import type { EssentiaVectorFloat, WindowingOutput, SpectrumOutput } from 'essentia.js/dist/essentia.js-core.es.js';
+import type { WorkerInboundMessage, AnalysisConfig } from '../workers/essentiaWorkerProtocol';
+import type { VisualizationPayload } from '../types/visualizer';
 import { LoudnessAnalysisEngine } from './LoudnessAnalysisEngine';
-import { MLInferenceEngine } from './MLInferenceEngine';
+import { MLInferenceEngine, MLPredictionResult } from './MLInferenceEngine';
 import { MelodyAnalysisEngine } from './MelodyAnalysisEngine';
 import { HarmonicAnalysisEngine } from './HarmonicAnalysisEngine';
 import { RhythmAnalysisEngine } from './RhythmAnalysisEngine';
 import { ErrorHandler, ErrorType, ErrorSeverity } from '../utils/ErrorHandler';
+import { MLEngineCoordinator } from './MLEngineCoordinator';
 
 interface PerformanceMetrics {
   analysisTime: number;
@@ -22,37 +33,49 @@ interface PerformanceMetrics {
   workerInitTime: number;
 }
 
-interface AnalysisConfig {
-  sampleRate: number;
-  frameSize: number;
-  hopSize: number;
-  enableRealTime: boolean;
-  chunkSize: number;
-  analysisOptions: {
-    spectral: boolean;
-    tempo: boolean;
-    key: boolean;
-    mfcc: boolean;
-    onset: boolean;
-    chromagram: boolean;
-  };
+interface SpectralStats { mean: number; std: number; }
+
+interface SpectralAnalysisSummary {
+  [k: string]: SpectralStats;
+  centroid: SpectralStats;
+  rolloff: SpectralStats;
+  flux: SpectralStats;
+  energy: SpectralStats;
+  brightness: SpectralStats;
+  roughness: SpectralStats;
+  spread: SpectralStats;
+  zcr: SpectralStats;
+}
+
+interface TempoAnalysisSummary {
+  bpm: number;
+  confidence: number;
+  beats: number[];
+}
+
+interface KeyAnalysisSummary {
+  key: string;
+  scale: string;
+  confidence: number;
 }
 
 export class RealEssentiaAudioEngine {
   private worker: Worker | null = null;
   private isInitialized = false;
-  private essentia: any = null;
+  private essentia: Essentia | null = null;
+  private mlCoordinator: MLEngineCoordinator;
   private status: EngineStatus = { status: 'initializing' };
   private activeAnalyses = new Map<string, {
     resolve: (result: AudioAnalysisResult) => void;
     reject: (error: Error) => void;
     progressCallback?: (progress: AnalysisProgress) => void;
   }>();
-  
+
   private performanceMetrics: PerformanceMetrics[] = [];
   private errorHistory: Array<{ timestamp: Date; error: string; context: string }> = [];
 
   constructor() {
+    this.mlCoordinator = new MLEngineCoordinator();
     this.initializeEngine();
   }
 
@@ -90,35 +113,39 @@ export class RealEssentiaAudioEngine {
       // Use URL constructor with import.meta.url for proper module resolution
       const workerUrl = new URL('../workers/essentia-analysis-worker.js', import.meta.url);
       this.worker = new Worker(workerUrl);
-      
+
       this.worker.onmessage = this.handleWorkerMessage.bind(this);
       this.worker.onerror = this.handleWorkerError.bind(this);
-      
+
       // Wait for worker initialization with timeout
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error('Worker initialization timeout'));
         }, 15000);
-        
+
         const handleInit = (event: MessageEvent) => {
           if (event.data.type === 'WORKER_READY') {
             clearTimeout(timeout);
-            this.worker!.removeEventListener('message', handleInit);
+            if (this.worker) {
+              this.worker.removeEventListener('message', handleInit);
+            }
             console.log('✅ Worker initialized successfully');
             resolve(event.data.payload);
           } else if (event.data.type === 'WORKER_ERROR') {
             clearTimeout(timeout);
-            this.worker!.removeEventListener('message', handleInit);
+            if (this.worker) {
+              this.worker.removeEventListener('message', handleInit);
+            }
             reject(new Error(event.data.payload.error));
           }
         };
-        
+
         this.worker!.addEventListener('message', handleInit);
-        
+
         // Send initialization message
         this.worker!.postMessage({ type: 'INIT' });
       });
-      
+
     } catch (error) {
       console.warn('⚠️ Worker initialization failed, falling back to main thread:', error);
       this.worker = null;
@@ -127,47 +154,55 @@ export class RealEssentiaAudioEngine {
   }
 
   private handleWorkerMessage(event: MessageEvent): void {
-    const { type, payload, id } = event.data;
-    
+    const msg = event.data as WorkerInboundMessage;
+    const { type, payload } = msg;
+    const id = 'id' in msg ? msg.id : undefined;
+
     switch (type) {
       case 'WORKER_READY':
         console.log('Worker ready:', payload);
         break;
-        
+
       case 'PROGRESS':
         if (id && this.activeAnalyses.has(id)) {
           const analysis = this.activeAnalyses.get(id)!;
           analysis.progressCallback?.(payload);
         }
         break;
-        
+
       case 'ANALYSIS_COMPLETE':
         if (id && this.activeAnalyses.has(id)) {
           const analysis = this.activeAnalyses.get(id)!;
-          
+
           // Record performance metrics
           if (payload.performance) {
             this.recordPerformanceMetrics(payload);
           }
-          
+
           analysis.resolve(payload);
           this.activeAnalyses.delete(id);
         }
         break;
-        
+
       case 'ANALYSIS_ERROR':
         if (id && this.activeAnalyses.has(id)) {
           const analysis = this.activeAnalyses.get(id)!;
           const error = new Error(payload.error);
-          
-          this.recordError(payload.error, payload.stage || 'unknown');
+
+          this.recordError(payload.error, 'analysis');
           analysis.reject(error);
           this.activeAnalyses.delete(id);
         }
         break;
-        
+
       case 'WORKER_ERROR':
-        this.handleEngineError(new Error(payload.error), payload.stage || 'worker');
+        // Reject all active analyses as the worker has failed
+        for (const analysis of this.activeAnalyses.values()) {
+          analysis.reject(new Error(payload.error));
+        }
+        this.activeAnalyses.clear();
+
+        this.handleEngineError(new Error(payload.error), 'worker');
         break;
     }
   }
@@ -211,7 +246,7 @@ export class RealEssentiaAudioEngine {
       error,
       context
     });
-    
+
     // Keep only last 50 errors
     if (this.errorHistory.length > 50) {
       this.errorHistory = this.errorHistory.slice(-50);
@@ -261,10 +296,22 @@ export class RealEssentiaAudioEngine {
   }
 
   public async analyzeAudio(
-    file: File, 
-    progressCallback?: (progress: AnalysisProgress) => void
+    file: File,
+    options: AnalysisOptions | ((progress: AnalysisProgress) => void) = {}
   ): Promise<AudioAnalysisResult> {
-    
+
+    const progressCallback =
+      typeof options === 'function' ? options : options.progressCallback;
+    const featureToggles =
+      typeof options === 'object' && options && 'featureToggles' in options
+        ? options.featureToggles || {}
+        : {};
+    warnUnsupportedFeatureToggles(featureToggles, console.warn, 'RealEssentiaAudioEngine');
+    const useTempo = featureToggles.tempo !== false;
+    const useKey = featureToggles.key !== false;
+    const useSegments = featureToggles.segments !== false;
+    const useML = featureToggles.mlClassification !== false;
+
     if (!this.isInitialized) {
       throw new Error('Engine not initialized. Check console for initialization errors.');
     }
@@ -272,24 +319,72 @@ export class RealEssentiaAudioEngine {
     if (!this.essentia) {
       throw new Error('Essentia instance not available. Engine may have failed to initialize.');
     }
-    
+
     const analysisId = `analysis-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     try {
       console.log(`🎵 Starting analysis for: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
-      
+
       // Decode audio file first
       const audioBuffer = await this.decodeAudioFile(file);
       console.log(`📊 Audio decoded: ${audioBuffer.duration.toFixed(2)}s, ${audioBuffer.sampleRate}Hz, ${audioBuffer.numberOfChannels} channels`);
-      
+
+      if (!audioBuffer || audioBuffer.length === 0 || audioBuffer.duration === 0) {
+        throw new Error('Audio buffer is empty or invalid');
+      }
+
       // Try worker-based analysis first
+      let result: AudioAnalysisResult;
       if (this.worker) {
-        return await this.analyzeWithWorker(analysisId, audioBuffer, file, progressCallback);
+        result = await this.analyzeWithWorker(analysisId, audioBuffer, file, progressCallback);
       } else {
         console.log('🔄 Using main thread analysis (worker not available)');
-        return await this.analyzeInMainThread(file, audioBuffer, progressCallback);
+        result = await this.analyzeInMainThread(file, audioBuffer, progressCallback, featureToggles);
       }
-      
+
+      // STEP 8: ML Inference (Genre, Mood)
+      if (useML && result.melSpectrogram) {
+        if (result.duration < 3.0) {
+          console.log('ℹ️ Skipping ML inference: Audio too short (< 3.0s)');
+        } else {
+          try {
+            progressCallback?.({
+              stage: 'analyzing',
+              mlPending: true,
+              percentage: 92,
+              progress: 0.92,
+              currentStep: 'ml-inference',
+              message: 'Running AI analysis...',
+              completedSteps: ['preprocessing', 'spectral', 'tempo', 'key', 'mfcc']
+            });
+
+            const mlResult = await this.mlCoordinator.predict({
+              melSpectrogram: result.melSpectrogram,
+              duration: result.duration,
+              sampleRate: result.sampleRate,
+              audioId: analysisId
+            });
+
+            // Merge ML results into main result
+            if (mlResult.predictions && mlResult.predictions.length > 0) {
+              result.genre = {
+                genre: mlResult.predictions[0].label,
+                confidence: mlResult.predictions[0].confidence,
+                predictions: mlResult.predictions.map(p => ({ genre: p.label, confidence: p.confidence }))
+              };
+              // Map mood if available (msd-vgg-1 usually outputs genre, we might need a different model for mood)
+              // For now, just store top prediction as genre
+            }
+            
+            console.log('✅ ML Inference complete:', result.genre);
+          } catch (mlError) {
+            console.warn('⚠️ ML Inference failed, continuing with DSP results:', mlError);
+          }
+        }
+      }
+
+      return result;
+
     } catch (error) {
       this.activeAnalyses.delete(analysisId);
       const errorObj = error instanceof Error ? error : new Error(String(error));
@@ -317,7 +412,7 @@ export class RealEssentiaAudioEngine {
     file: File,
     progressCallback?: (progress: AnalysisProgress) => void
   ): Promise<AudioAnalysisResult> {
-    
+
     const config: AnalysisConfig = {
       sampleRate: audioBuffer.sampleRate,
       frameSize: 2048,
@@ -344,9 +439,11 @@ export class RealEssentiaAudioEngine {
     });
 
     // Extract raw audio data from AudioBuffer (cannot send AudioBuffer to worker)
+    // Copy AudioBuffer channel data into transferable Float32Arrays.
+    // (AudioBuffer-backed views are not safe to transfer directly in all runtimes.)
     const channelData: Float32Array[] = [];
     for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
-      channelData.push(audioBuffer.getChannelData(i));
+      channelData.push(new Float32Array(audioBuffer.getChannelData(i)));
     }
 
     // Send analysis request to worker
@@ -365,15 +462,15 @@ export class RealEssentiaAudioEngine {
         fileName: file.name
       },
       id: analysisId
-    }, channelData); // Transfer ownership for performance
+    }, channelData.map((c) => c.buffer)); // Transfer ArrayBuffers for performance
 
     const result = await analysisPromise;
-    
+
     // Update performance metrics with file size
     if (this.performanceMetrics.length > 0) {
       this.performanceMetrics[this.performanceMetrics.length - 1].fileSize = file.size;
     }
-    
+
     console.log(`✅ Worker analysis complete for ${file.name}`);
     return result;
   }
@@ -381,19 +478,24 @@ export class RealEssentiaAudioEngine {
   private async analyzeInMainThread(
     file: File,
     audioBuffer: AudioBuffer,
-    progressCallback?: (progress: AnalysisProgress) => void
+    progressCallback?: (progress: AnalysisProgress) => void,
+    featureToggles: FeatureToggles = {}
   ): Promise<AudioAnalysisResult> {
-    
+
     console.log(`🔍 Main thread analysis starting for: ${file.name}`);
-    
+
     if (!this.essentia) {
       throw new Error('Essentia instance not available');
     }
-    
+
     const startTime = performance.now();
+    const useTempo = featureToggles.tempo !== false;
+    const useKey = featureToggles.key !== false;
+    const useSegments = featureToggles.segments !== false;
+    const useML = featureToggles.mlClassification !== false;
     const channelData = audioBuffer.getChannelData(0); // Get mono channel
-    let inputVector: any = null;
-    
+    let inputVector: EssentiaVectorFloat | null = null;
+
     try {
       // STEP 1: Convert audio to Essentia vector
       progressCallback?.({
@@ -404,16 +506,16 @@ export class RealEssentiaAudioEngine {
         message: 'Converting audio data...',
         completedSteps: []
       });
-      
+
       inputVector = this.essentia.arrayToVector(channelData);
       console.log(`📈 Audio vector created: ${channelData.length} samples`);
-      
+
       // STEP 2: Configure analysis parameters
       const frameSize = 2048;
       const hopSize = 512;
       const sampleRate = audioBuffer.sampleRate;
       const frames: Float32Array[] = [];
-      
+
       // Frame the audio for detailed analysis
       progressCallback?.({
         stage: 'analyzing',
@@ -423,15 +525,15 @@ export class RealEssentiaAudioEngine {
         message: 'Framing audio for analysis...',
         completedSteps: ['preprocessing']
       });
-      
+
       for (let i = 0; i < channelData.length - frameSize; i += hopSize) {
         frames.push(channelData.slice(i, i + frameSize));
         // Limit frames for performance (about 10 seconds worth)
         if (frames.length > Math.min(200, Math.floor(sampleRate * 10 / hopSize))) break;
       }
-      
+
       console.log(`🎛️ Created ${frames.length} frames for analysis`);
-      
+
       // STEP 3: Spectral Analysis
       progressCallback?.({
         stage: 'analyzing',
@@ -441,89 +543,104 @@ export class RealEssentiaAudioEngine {
         message: 'Analyzing spectral features...',
         completedSteps: ['preprocessing', 'framing']
       });
-      
+
       const spectralResults = await this.performSpectralAnalysis(frames, sampleRate);
-      
+
       // STEP 4: Tempo Detection
-      progressCallback?.({
-        stage: 'analyzing',
-        percentage: 50,
-        progress: 0.5,
-        currentStep: 'tempo',
-        message: 'Detecting tempo and rhythm...',
-        completedSteps: ['preprocessing', 'framing', 'spectral']
-      });
-      
-      const tempoResults = await this.performTempoAnalysis(inputVector, frameSize, hopSize, sampleRate);
-      
+      let tempoResults: Awaited<ReturnType<typeof this.performTempoAnalysis>> | undefined;
+      if (useTempo) {
+        progressCallback?.({
+          stage: 'analyzing',
+          percentage: 50,
+          progress: 0.5,
+          currentStep: 'tempo',
+          message: 'Detecting tempo and rhythm...',
+          completedSteps: ['preprocessing', 'framing', 'spectral']
+        });
+
+        tempoResults = await this.performTempoAnalysis(inputVector, frameSize, hopSize, sampleRate);
+      }
+
       // STEP 5: Key Detection
-      progressCallback?.({
-        stage: 'analyzing',
-        percentage: 70,
-        progress: 0.7,
-        currentStep: 'key',
-        message: 'Detecting musical key...',
-        completedSteps: ['preprocessing', 'framing', 'spectral', 'tempo']
-      });
-      
-      const keyResults = await this.performKeyAnalysis(inputVector, frameSize, hopSize, sampleRate);
+      let keyResults = { key: 'C', scale: 'major', confidence: 0.0 };
+      if (useKey) {
+        progressCallback?.({
+          stage: 'analyzing',
+          percentage: 70,
+          progress: 0.7,
+          currentStep: 'key',
+          message: 'Detecting musical key...',
+          completedSteps: ['preprocessing', 'framing', 'spectral', 'tempo']
+        });
+
+        keyResults = await this.performKeyAnalysis(inputVector, frameSize, hopSize, sampleRate);
+      }
 
       // Melody Analysis (pitch tracking, contour, intervals, motifs)
-      progressCallback?.({
-        stage: 'analyzing',
-        percentage: 78,
-        progress: 0.78,
-        currentStep: 'melody',
-        message: 'Analyzing melody (pitch tracking, intervals)...',
-        completedSteps: ['preprocessing', 'framing', 'spectral', 'tempo', 'key']
-      });
+      let melodyResults: MelodyAnalysis | undefined;
+      let harmonicResults: HarmonicAnalysis | undefined;
+      let rhythmResults: RhythmAnalysis | undefined;
 
-      const melodyResults = await this.safeAnalysisStep(
-        'Melody Analysis',
-        async () => {
-          const melodyEngine = new MelodyAnalysisEngine(audioBuffer.sampleRate);
-          return await melodyEngine.analyze(audioBuffer);
-        },
-        undefined // Graceful fallback - melody is optional
-      );
+      if (useSegments) {
+        progressCallback?.({
+          stage: 'analyzing',
+          percentage: 78,
+          progress: 0.78,
+          currentStep: 'melody',
+          message: 'Analyzing melody (pitch tracking, intervals)...',
+          completedSteps: ['preprocessing', 'framing', 'spectral', 'tempo', 'key']
+        });
 
-      // Harmonic Analysis (chords, progressions, cadences, Roman numerals)
-      progressCallback?.({
-        stage: 'analyzing',
-        percentage: 81,
-        progress: 0.81,
-        currentStep: 'harmonic',
-        message: 'Analyzing harmony (chords, progressions, cadences)...',
-        completedSteps: ['preprocessing', 'framing', 'spectral', 'tempo', 'key', 'melody']
-      });
+        melodyResults = await this.safeAnalysisStep(
+          'Melody Analysis',
+          async () => {
+            const melodyEngine = new MelodyAnalysisEngine(audioBuffer.sampleRate, this.essentia);
+            return await melodyEngine.analyze(audioBuffer);
+          },
+          undefined // Graceful fallback - melody is optional
+        );
 
-      const harmonicResults = await this.safeAnalysisStep(
-        'Harmonic Analysis',
-        async () => {
-          const harmonicEngine = new HarmonicAnalysisEngine(audioBuffer.sampleRate, keyResults);
-          return await harmonicEngine.analyze(audioBuffer);
-        },
-        undefined // Graceful fallback - harmonic analysis is optional
-      );
+        // Harmonic Analysis (chords, progressions, cadences, Roman numerals)
+        progressCallback?.({
+          stage: 'analyzing',
+          percentage: 81,
+          progress: 0.81,
+          currentStep: 'harmonic',
+          message: 'Analyzing harmony (chords, progressions, cadences)...',
+          completedSteps: ['preprocessing', 'framing', 'spectral', 'tempo', 'key', 'melody']
+        });
 
-      // Rhythm Analysis (time signature, downbeats, groove, patterns)
-      progressCallback?.({
-        stage: 'analyzing',
-        percentage: 83,
-        progress: 0.83,
-        currentStep: 'rhythm',
-        message: 'Analyzing rhythm (time signature, groove, patterns)...',
-        completedSteps: ['preprocessing', 'framing', 'spectral', 'tempo', 'key', 'melody', 'harmonic']
-      });
+        harmonicResults = await this.safeAnalysisStep(
+          'Harmonic Analysis',
+          async () => {
+            const harmonicEngine = new HarmonicAnalysisEngine(audioBuffer.sampleRate, keyResults, this.essentia);
+            return await harmonicEngine.analyze(audioBuffer);
+          },
+          undefined // Graceful fallback - harmonic analysis is optional
+        );
 
-      const rhythmResults = await this.safeAnalysisStep(
-        'Rhythm Analysis',
-        async () => {
-          const rhythmEngine = new RhythmAnalysisEngine(audioBuffer.sampleRate, tempoResults);
-          return await rhythmEngine.analyze(audioBuffer);
-        },
-        undefined // Graceful fallback - rhythm analysis is optional
-      );
+        // Rhythm Analysis (time signature, downbeats, groove, patterns)
+        progressCallback?.({
+          stage: 'analyzing',
+          percentage: 83,
+          progress: 0.83,
+          currentStep: 'rhythm',
+          message: 'Analyzing rhythm (time signature, groove, patterns)...',
+          completedSteps: ['preprocessing', 'framing', 'spectral', 'tempo', 'key', 'melody', 'harmonic']
+        });
+
+        rhythmResults = await this.safeAnalysisStep(
+          'Rhythm Analysis',
+          async () => {
+            if (!tempoResults) {
+              throw new Error('Tempo analysis results are not available; cannot perform rhythm analysis.');
+            }
+            const rhythmEngine = new RhythmAnalysisEngine(audioBuffer.sampleRate, tempoResults);
+            return await rhythmEngine.analyze(audioBuffer);
+          },
+          undefined // Graceful fallback - rhythm analysis is optional
+        );
+      }
 
       // STEP 6: MFCC Extraction
       progressCallback?.({
@@ -534,27 +651,30 @@ export class RealEssentiaAudioEngine {
         message: 'Extracting MFCC features...',
         completedSteps: ['preprocessing', 'framing', 'spectral', 'tempo', 'key', 'melody', 'harmonic', 'rhythm']
       });
-      
+
       const mfccResults = await this.performMFCCAnalysis(frames.slice(0, 10), sampleRate);
 
       // ML Inference (genre, mood, danceability, instruments)
-      progressCallback?.({
-        stage: 'analyzing',
-        percentage: 87,
-        progress: 0.87,
-        currentStep: 'ml-inference',
-        message: 'Running ML models (genre, mood, danceability)...',
-        completedSteps: ['preprocessing', 'framing', 'spectral', 'tempo', 'key', 'melody', 'harmonic', 'rhythm', 'mfcc']
-      });
+      let mlResults: MLPredictionResult | undefined;
+      if (useML) {
+        progressCallback?.({
+          stage: 'analyzing',
+          percentage: 87,
+          progress: 0.87,
+          currentStep: 'ml-inference',
+          message: 'Running ML models (genre, mood, danceability)...',
+          completedSteps: ['preprocessing', 'framing', 'spectral', 'tempo', 'key', 'melody', 'harmonic', 'rhythm', 'mfcc']
+        });
 
-      const mlResults = await this.safeAnalysisStep(
-        'ML Inference',
-        async () => {
-          const mlEngine = new MLInferenceEngine();
-          return await mlEngine.analyze(audioBuffer, mfccResults);
-        },
-        undefined // Graceful fallback - ML is optional
-      );
+        mlResults = await this.safeAnalysisStep(
+          'ML Inference',
+          async () => {
+            const mlEngine = new MLInferenceEngine();
+            return await mlEngine.analyze(audioBuffer, mfccResults);
+          },
+          undefined // Graceful fallback - ML is optional
+        );
+      }
 
       // STEP 7: Finalize Results
       // Loudness analysis (LUFS, true peak, dynamic range)
@@ -593,11 +713,11 @@ export class RealEssentiaAudioEngine {
         sampleRate: audioBuffer.sampleRate,
         channels: audioBuffer.numberOfChannels,
         analysisTimestamp: Date.now(),
-        tempo: tempoResults,
-        key: keyResults,
-        melody: melodyResults,
-        harmonic: harmonicResults,
-        rhythm: rhythmResults,
+        tempo: useTempo ? tempoResults : undefined,
+        key: useKey ? keyResults : undefined,
+        melody: useSegments ? melodyResults : undefined,
+        harmonic: useSegments ? harmonicResults : undefined,
+        rhythm: useSegments ? rhythmResults : undefined,
         spectral: spectralResults,
         mfcc: mfccResults,
         loudness: loudnessResults,
@@ -614,7 +734,7 @@ export class RealEssentiaAudioEngine {
           memoryUsage: Math.floor(channelData.length * 4 + frames.length * frameSize * 4) // Rough estimate
         }
       };
-      
+
       // Final progress update
       progressCallback?.({
         stage: 'complete',
@@ -624,10 +744,10 @@ export class RealEssentiaAudioEngine {
         message: 'Analysis complete!',
         completedSteps: ['preprocessing', 'framing', 'spectral', 'tempo', 'key', 'melody', 'mfcc', 'ml-inference', 'loudness', 'finalization']
       });
-      
+
       console.log(`✅ Main thread analysis complete in ${analysisTime.toFixed(2)}ms`);
       return result;
-      
+
     } catch (error) {
       console.error('Main thread analysis error:', error);
       throw new Error(`Main thread analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -643,7 +763,7 @@ export class RealEssentiaAudioEngine {
     }
   }
 
-  private async performSpectralAnalysis(frames: Float32Array[], sampleRate: number): Promise<any> {
+  private async performSpectralAnalysis(frames: Float32Array[], sampleRate: number): Promise<SpectralAnalysisSummary> {
     const spectralCentroids: number[] = [];
     const spectralRolloffs: number[] = [];
     const spectralFlux: number[] = [];
@@ -654,39 +774,43 @@ export class RealEssentiaAudioEngine {
     const zeroCrossingRates: number[] = [];
     const frameSize = frames[0]?.length || 2048;
 
-    let previousSpectrum: any = null;
+    let previousSpectrum: EssentiaVectorFloat | null = null;
+    const essentia = this.essentia;
+    if (!essentia) {
+      throw new Error('Essentia not initialized');
+    }
 
     for (let i = 0; i < frames.length && i < 100; i++) { // Limit for performance
       const frame = frames[i];
-      let frameVector: any = null;
-      let windowed: any = null;
-      let spectrum: any = null;
+      let frameVector: EssentiaVectorFloat | null = null;
+      let windowed: WindowingOutput | null = null;
+      let spectrum: SpectrumOutput | null = null;
 
       try {
-        frameVector = this.essentia.arrayToVector(frame);
+        frameVector = essentia.arrayToVector(frame);
 
         // Apply windowing
-        windowed = this.essentia.Windowing(frameVector, true, frameSize, 'hann');
+        windowed = essentia.Windowing(frameVector, true, frameSize, 'hann');
 
         // Compute spectrum
-        spectrum = this.essentia.Spectrum(windowed.frame, frameSize);
+        spectrum = essentia.Spectrum(windowed.frame, frameSize);
 
         // Calculate spectral features
-        const centroid = this.essentia.SpectralCentroidTime(frameVector, sampleRate);
-        const rolloff = this.essentia.RollOff(spectrum.spectrum, 0.85, sampleRate);
+        const centroid = essentia.SpectralCentroidTime(frameVector, sampleRate);
+        const rolloff = essentia.RollOff(spectrum.spectrum, 0.85, sampleRate);
 
         spectralCentroids.push(centroid.centroid);
         spectralRolloffs.push(rolloff.rollOff);
 
         // Calculate spectral flux (if we have a previous spectrum)
         if (previousSpectrum) {
-          const flux = this.essentia.Flux(previousSpectrum, spectrum.spectrum);
+          const flux = essentia.Flux(previousSpectrum, spectrum.spectrum);
           spectralFlux.push(flux.flux);
         }
 
         // Energy: Sum of squared magnitudes in frequency domain
         try {
-          const energy = this.essentia.Energy(frameVector);
+          const energy = essentia.Energy(frameVector);
           spectralEnergy.push(energy.energy);
         } catch {
           // Fallback: manual energy calculation
@@ -704,7 +828,7 @@ export class RealEssentiaAudioEngine {
 
         // Roughness/Dissonance: Spectral irregularity
         try {
-          const dissonance = this.essentia.Dissonance(frameVector);
+          const dissonance = essentia.Dissonance(frameVector);
           spectralRoughness.push(dissonance.dissonance || 0);
         } catch {
           // Fallback: calculate as variance in spectral bins
@@ -743,7 +867,7 @@ export class RealEssentiaAudioEngine {
 
         // Zero Crossing Rate: Number of sign changes in time-domain signal
         try {
-          const zcr = this.essentia.ZeroCrossingRate(frameVector);
+          const zcr = essentia.ZeroCrossingRate(frameVector);
           zeroCrossingRates.push(zcr.zeroCrossingRate);
         } catch {
           // Fallback: manual ZCR calculation
@@ -766,7 +890,7 @@ export class RealEssentiaAudioEngine {
         // Clean up vectors
         if (frameVector) frameVector.delete();
         if (windowed?.frame) windowed.frame.delete();
-        if (spectrum && spectrum !== previousSpectrum) spectrum.spectrum?.delete();
+        if (spectrum?.spectrum && spectrum.spectrum !== previousSpectrum) spectrum.spectrum.delete();
       }
     }
 
@@ -796,10 +920,14 @@ export class RealEssentiaAudioEngine {
     };
   }
 
-  private async performTempoAnalysis(inputVector: any, frameSize: number, hopSize: number, sampleRate: number): Promise<any> {
+  private async performTempoAnalysis(inputVector: EssentiaVectorFloat, frameSize: number, hopSize: number, sampleRate: number): Promise<TempoAnalysisSummary> {
+    const essentia = this.essentia;
+    if (!essentia) {
+      throw new Error('Essentia not initialized');
+    }
     try {
-      const tempo = this.essentia.PercivalBpmEstimator(inputVector, frameSize, hopSize, sampleRate);
-      
+      const tempo = essentia.PercivalBpmEstimator(inputVector, frameSize, hopSize, sampleRate);
+
       return {
         bpm: tempo.bpm || 120, // Default fallback
         confidence: tempo.confidence || 0.5,
@@ -815,10 +943,14 @@ export class RealEssentiaAudioEngine {
     }
   }
 
-  private async performKeyAnalysis(inputVector: any, frameSize: number, hopSize: number, sampleRate: number): Promise<any> {
+  private async performKeyAnalysis(inputVector: EssentiaVectorFloat, frameSize: number, hopSize: number, sampleRate: number): Promise<KeyAnalysisSummary> {
+    const essentia = this.essentia;
+    if (!essentia) {
+      throw new Error('Essentia not initialized');
+    }
     try {
-      const key = this.essentia.KeyExtractor(inputVector, true, frameSize, hopSize, sampleRate);
-      
+      const key = essentia.KeyExtractor(inputVector, true, frameSize, hopSize, sampleRate);
+
       return {
         key: key.key || 'C',
         scale: key.scale || 'major',
@@ -836,18 +968,22 @@ export class RealEssentiaAudioEngine {
 
   private async performMFCCAnalysis(frames: Float32Array[], sampleRate: number): Promise<number[]> {
     if (frames.length === 0) return Array(13).fill(0);
-    
+
     const frameSize = frames[0].length;
-    let frameVector: any = null;
-    let windowed: any = null;
-    let spectrum: any = null;
-    
+    let frameVector: EssentiaVectorFloat | null = null;
+    let windowed: WindowingOutput | null = null;
+    let spectrum: SpectrumOutput | null = null;
+    const essentia = this.essentia;
+    if (!essentia) {
+      throw new Error('Essentia not initialized');
+    }
+
     try {
-      frameVector = this.essentia.arrayToVector(frames[0]);
-      windowed = this.essentia.Windowing(frameVector, true, frameSize, 'hann');
-      spectrum = this.essentia.Spectrum(windowed.frame, frameSize);
-      const mfcc = this.essentia.MFCC(spectrum.spectrum, 13, sampleRate);
-      
+      frameVector = essentia.arrayToVector(frames[0]);
+      windowed = essentia.Windowing(frameVector, true, frameSize, 'hann');
+      spectrum = essentia.Spectrum(windowed.frame, frameSize);
+      const mfcc = essentia.MFCC(spectrum.spectrum, 13, sampleRate);
+
       return Array.from(mfcc.mfcc);
     } catch (error) {
       console.warn('MFCC analysis error:', error);
@@ -863,23 +999,27 @@ export class RealEssentiaAudioEngine {
   private async decodeAudioFile(file: File): Promise<AudioBuffer> {
     try {
       console.log(`🎧 Decoding audio file: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
-      
+
       const arrayBuffer = await file.arrayBuffer();
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
+      const AudioContextCtor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextCtor) {
+        throw new Error('Web Audio API is not supported in this environment');
+      }
+      const audioContext = new AudioContextCtor();
+
       // Set sample rate to ensure compatibility
       if (audioContext.sampleRate !== 44100) {
         console.log(`📊 Audio context sample rate: ${audioContext.sampleRate}Hz`);
       }
-      
+
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      
+
       // Close the audio context to free resources
       await audioContext.close();
-      
+
       console.log(`✅ Audio decoded successfully: ${audioBuffer.duration.toFixed(2)}s, ${audioBuffer.sampleRate}Hz`);
       return audioBuffer;
-      
+
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error(String(error));
 
@@ -892,12 +1032,28 @@ export class RealEssentiaAudioEngine {
   }
 
   // Public API Methods
+  public async analyzeFile(file: File, options: AnalysisOptions = {}): Promise<AudioAnalysisResult> {
+    // Wrapper to align with EssentiaAudioEngine signature; delegates to main analysis pipeline.
+    return this.analyzeAudio(file, options);
+  }
+
   public getEngineStatus(): EngineStatus {
-    return { ...this.status };
+    return { 
+      ...this.status,
+      mlStatus: this.getMLStatus()
+    };
   }
 
   public isEngineReady(): boolean {
     return this.isInitialized && this.status.status === 'ready';
+  }
+
+  public getMLStatus() {
+    return this.mlCoordinator.getStatus();
+  }
+
+  public retryML() {
+    this.mlCoordinator.retryWarmup();
   }
 
   public getPerformanceMetrics(): {
@@ -906,7 +1062,7 @@ export class RealEssentiaAudioEngine {
     trends: { [key: string]: number };
   } {
     const recent = this.performanceMetrics.slice(-10);
-    
+
     const average: Partial<PerformanceMetrics> = {};
     if (this.performanceMetrics.length > 0) {
       const metrics = this.performanceMetrics;
@@ -914,20 +1070,20 @@ export class RealEssentiaAudioEngine {
       average.memoryUsage = metrics.reduce((sum, m) => sum + m.memoryUsage, 0) / metrics.length;
       average.duration = metrics.reduce((sum, m) => sum + m.duration, 0) / metrics.length;
     }
-    
+
     // Calculate performance trends
     const trends: { [key: string]: number } = {};
     if (this.performanceMetrics.length >= 10) {
       const recentFive = this.performanceMetrics.slice(-5);
       const earlierFive = this.performanceMetrics.slice(-10, -5);
-      
+
       if (earlierFive.length > 0) {
         const recentAvg = recentFive.reduce((sum, m) => sum + m.analysisTime, 0) / recentFive.length;
         const earlierAvg = earlierFive.reduce((sum, m) => sum + m.analysisTime, 0) / earlierFive.length;
         trends.analysisTime = (recentAvg - earlierAvg) / earlierAvg;
       }
     }
-    
+
     return { recent, average, trends };
   }
 
@@ -943,48 +1099,125 @@ export class RealEssentiaAudioEngine {
 
   public terminate(): void {
     console.log('🛑 Terminating Essentia.js engine...');
-    
+
     if (this.worker) {
       this.worker.terminate();
       this.worker = null;
       console.log('🔧 Worker terminated');
     }
-    
+
     // Reject any pending analyses
     for (const [id, analysis] of this.activeAnalyses) {
       analysis.reject(new Error('Engine terminated'));
     }
     this.activeAnalyses.clear();
-    
+
     this.isInitialized = false;
     this.status = { status: 'initializing' };
     this.essentia = null;
-    
+
     console.log('✅ Engine terminated successfully');
   }
 
   // Real-time analysis methods (placeholder for future implementation)
+  // Real-time analysis state
+  private realtimeContext: AudioContext | null = null;
+  private realtimeAnalyser: AnalyserNode | null = null;
+  private realtimeSource: MediaElementAudioSourceNode | null = null;
+  private realtimeRafId: number | null = null;
+
   public async startRealtimeAnalysis(
     audioElement: HTMLAudioElement,
-    callback: (features: Partial<AudioAnalysisResult>) => void
+    callback: (features: Partial<AudioAnalysisResult> | VisualizationPayload) => void
   ): Promise<void> {
     if (!this.isInitialized) {
       throw new Error('Engine not initialized');
     }
 
-    console.log('🔄 Real-time analysis not yet implemented - would analyze:', audioElement.src);
+    this.stopRealtimeAnalysis();
+
+    // Initialize Audio Context for Realtime
+    const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+    this.realtimeContext = new AudioContextCtor();
     
-    // TODO: Implement real-time feature extraction synchronized with audio playback
-    // This would involve:
-    // 1. Creating an AudioContext with the audio element as source
-    // 2. Setting up a ScriptProcessorNode or AudioWorkletNode
-    // 3. Running Essentia.js algorithms on each audio buffer chunk
-    // 4. Calling the callback with updated features
+    // Connect Audio Element
+    this.realtimeSource = this.realtimeContext.createMediaElementSource(audioElement);
+    this.realtimeAnalyser = this.realtimeContext.createAnalyser();
+    
+    // Config Analyser
+    this.realtimeAnalyser.fftSize = 2048; // Matches default VisualizerConfig
+    this.realtimeAnalyser.smoothingTimeConstant = 0.8;
+
+    this.realtimeSource.connect(this.realtimeAnalyser);
+    this.realtimeAnalyser.connect(this.realtimeContext.destination);
+
+    // Start Loop
+    const bufferLength = this.realtimeAnalyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    const waveArray = new Float32Array(bufferLength);
+    
+    let sequence = 0;
+
+    const loop = () => {
+      if (!this.realtimeAnalyser) return;
+
+      this.realtimeAnalyser.getByteFrequencyData(dataArray);
+      this.realtimeAnalyser.getFloatTimeDomainData(waveArray);
+
+      // Convert to VisualizationPayload format (Float32 normalized)
+      const spectrum = new Float32Array(bufferLength);
+      for (let i = 0; i < bufferLength; i++) {
+        spectrum[i] = dataArray[i] / 255.0;
+      }
+
+      // Calculate simple energy metrics
+      let sumSq = 0;
+      for (let i = 0; i < waveArray.length; i++) {
+        sumSq += waveArray[i] * waveArray[i];
+      }
+      const rms = Math.sqrt(sumSq / waveArray.length);
+
+      const payload: VisualizationPayload = {
+        sequence: sequence++,
+        timestamp: this.realtimeContext?.currentTime || 0,
+        spectrum: spectrum,
+        waveform: Float32Array.from(waveArray), // Clone to avoid buffer detachment issues if transferred
+        energy: {
+          rms,
+          peak: 0, // TODO: Implement true peak
+          loudness: -14 // TODO: Implement LUFS
+        }
+      };
+
+      callback(payload);
+      this.realtimeRafId = requestAnimationFrame(loop);
+    };
+
+    loop();
   }
 
   public stopRealtimeAnalysis(): void {
-    console.log('⏹️ Stopping real-time analysis (not yet implemented)');
-    // TODO: Stop any ongoing real-time analysis
+    if (this.realtimeRafId) {
+      cancelAnimationFrame(this.realtimeRafId);
+      this.realtimeRafId = null;
+    }
+    
+    if (this.realtimeSource) {
+      this.realtimeSource.disconnect();
+      this.realtimeSource = null;
+    }
+
+    if (this.realtimeAnalyser) {
+      this.realtimeAnalyser.disconnect();
+      this.realtimeAnalyser = null;
+    }
+
+    if (this.realtimeContext) {
+      if (this.realtimeContext.state !== 'closed') {
+        this.realtimeContext.close();
+      }
+      this.realtimeContext = null;
+    }
   }
 
   // Diagnostic methods for debugging
@@ -996,13 +1229,14 @@ export class RealEssentiaAudioEngine {
     memoryUsage: number;
     performanceHistory: number;
   }> {
+    const e = this.essentia as (Essentia & { version?: string; algorithmNames?: string[] }) | null;
     const diagnostics = {
       engineStatus: this.getEngineStatus(),
-      essentiaVersion: this.essentia?.version || null,
-      algorithmCount: this.essentia?.algorithmNames?.length || 0,
+      essentiaVersion: e?.version ?? null,
+      algorithmCount: e?.algorithmNames?.length ?? 0,
       workerStatus: (this.worker ? 'available' : 'unavailable') as 'available' | 'unavailable',
-      memoryUsage: this.performanceMetrics.length > 0 
-        ? this.performanceMetrics[this.performanceMetrics.length - 1].memoryUsage 
+      memoryUsage: this.performanceMetrics.length > 0
+        ? this.performanceMetrics[this.performanceMetrics.length - 1].memoryUsage
         : 0,
       performanceHistory: this.performanceMetrics.length
     };
@@ -1029,13 +1263,13 @@ export class RealEssentiaAudioEngine {
 
     const testedAlgorithms: string[] = [];
     const errors: string[] = [];
-    
+
     try {
       // Test basic vector operations
       const testData = new Float32Array([0, 1, 0, -1, 0, 1, 0, -1]);
       const testVector = this.essentia.arrayToVector(testData);
       testedAlgorithms.push('arrayToVector');
-      
+
       try {
         // Test windowing
         const windowed = this.essentia.Windowing(testVector, true, 8, 'hann');
@@ -1044,7 +1278,7 @@ export class RealEssentiaAudioEngine {
       } catch (e) {
         errors.push(`Windowing: ${e instanceof Error ? e.message : 'Unknown error'}`);
       }
-      
+
       try {
         // Test spectrum computation
         const spectrum = this.essentia.Spectrum(testVector, 8);
@@ -1053,7 +1287,7 @@ export class RealEssentiaAudioEngine {
       } catch (e) {
         errors.push(`Spectrum: ${e instanceof Error ? e.message : 'Unknown error'}`);
       }
-      
+
       try {
         // Test spectral centroid
         const centroid = this.essentia.SpectralCentroidTime(testVector, 44100);
@@ -1061,22 +1295,22 @@ export class RealEssentiaAudioEngine {
       } catch (e) {
         errors.push(`SpectralCentroidTime: ${e instanceof Error ? e.message : 'Unknown error'}`);
       }
-      
+
       testVector.delete();
-      
+
       const success = errors.length === 0;
-      const message = success 
+      const message = success
         ? `All tests passed. Tested ${testedAlgorithms.length} algorithms.`
         : `${errors.length} errors occurred during testing.`;
-      
+
       console.log(`🧪 Essentia.js functionality test: ${success ? 'PASSED' : 'FAILED'}`);
-      
+
       return { success, message, testedAlgorithms, errors };
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown test error';
       console.error('🧪 Essentia.js test failed:', error);
-      
+
       return {
         success: false,
         message: `Test failed: ${errorMessage}`,

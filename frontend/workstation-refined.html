@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Harmonix Pro — Refined Workstation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-void: #050608;
+      --bg-panel: #0d1118;
+      --bg-surface: #151b25;
+      --bg-plate: #1d2532;
+      --border-soft: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.14);
+      --text-main: #e8edf7;
+      --text-dim: #8a93ad;
+      --accent-ice: #6de2ff;
+      --accent-teal: #28d1b8;
+      --accent-gold: #f0b35b;
+      --accent-rose: #ff6b8f;
+      --glow-ice: 0 0 18px rgba(109, 226, 255, 0.45);
+      --glow-gold: 0 0 14px rgba(240, 179, 91, 0.35);
+      --glow-rose: 0 0 18px rgba(255, 107, 143, 0.35);
+      --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E");
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      color: var(--text-main);
+      background: radial-gradient(ellipse 90% 60% at 50% -10%, rgba(109, 226, 255, 0.14), transparent),
+                  radial-gradient(ellipse 70% 50% at 80% 110%, rgba(240, 179, 91, 0.12), transparent),
+                  var(--bg-void);
+      display: grid;
+      place-items: center;
+      padding: 3rem;
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 90px 90px;
+      opacity: 0.18;
+      mix-blend-mode: screen;
+      pointer-events: none;
+      z-index: -2;
+    }
+    body::after {
+      content: "";
+      position: fixed; inset: 0;
+      background-image: var(--grain);
+      opacity: 0.6;
+      mix-blend-mode: soft-light;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    /* Panel shell */
+    .panel {
+      width: 920px;
+      border-radius: 18px;
+      padding: 24px 26px 28px;
+      background: linear-gradient(140deg, rgba(255,255,255,0.03), transparent 30%), var(--bg-panel);
+      border: 1px solid var(--border-soft);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.06),
+        0 26px 70px rgba(0,0,0,0.65),
+        0 40px 100px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+      position: relative;
+      overflow: hidden;
+    }
+    .panel::after {
+      content: "";
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at 20% 20%, rgba(109,226,255,0.12), transparent 40%),
+                  radial-gradient(circle at 80% 10%, rgba(240,179,91,0.12), transparent 40%);
+      pointer-events: none;
+      opacity: 0.55;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .badge {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(145deg, #1b2535, #0f141d);
+      border: 1px solid var(--border-strong);
+      display: grid; place-items: center;
+      color: var(--accent-ice);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      box-shadow:
+        0 8px 16px rgba(0,0,0,0.4),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .title {
+      font-size: 1rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    /* Transport */
+    .transport {
+      display: grid;
+      grid-auto-flow: column;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 14px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-soft);
+      margin-bottom: 18px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .t-btn {
+      width: 54px;
+      height: 54px;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      background: linear-gradient(180deg, #101622, #0c0f18);
+      color: var(--text-dim);
+      display: grid; place-items: center;
+      cursor: pointer;
+      position: relative;
+      transition: transform 140ms cubic-bezier(0.34,1.56,0.64,1), box-shadow 160ms ease, border-color 160ms ease;
+    }
+    .t-btn svg { width: 22px; height: 22px; fill: currentColor; filter: drop-shadow(0 0 8px currentColor); }
+    .t-btn:hover {
+      color: var(--text-main);
+      transform: translateY(-2px) scale(1.06);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.45), var(--glow-ice);
+      border-color: rgba(109,226,255,0.6);
+    }
+    .t-btn:active { transform: translateY(1px) scale(0.98); }
+    .t-btn.primary {
+      color: #0b1018;
+      background: linear-gradient(180deg, #7ff1ff, #38c9ff);
+      box-shadow: var(--glow-ice);
+    }
+    .t-btn.record {
+      color: #1a0c0c;
+      background: linear-gradient(180deg, #ff7b6b, #ff3b30);
+      border-color: rgba(255,107,143,0.6);
+      box-shadow: var(--glow-rose);
+    }
+
+    /* Layout */
+    .grid {
+      display: grid;
+      grid-template-columns: 180px 1fr 240px;
+      gap: 24px;
+      align-items: center;
+    }
+
+    /* Knob */
+    .knob-wrap {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .knob {
+      width: 96px; height: 96px;
+      position: relative;
+      cursor: grab;
+      transition: transform 120ms ease, filter 120ms ease;
+    }
+    .knob:hover { transform: scale(1.05); filter: drop-shadow(0 0 12px rgba(109,226,255,0.35)); }
+    .knob:active { cursor: grabbing; transform: scale(1.02); }
+    .knob-ring {
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(from 200deg, rgba(109,226,255,0.4), rgba(109,226,255,0) 40%, rgba(240,179,91,0.4) 70%, rgba(109,226,255,0.4));
+      filter: blur(6px);
+      opacity: 0.6;
+    }
+    .knob-face {
+      position: absolute; inset: 10px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 45%),
+        conic-gradient(from 160deg, #222c3d, #0f131c 90%, #222c3d 100%);
+      box-shadow:
+        0 14px 28px rgba(0,0,0,0.55),
+        inset 0 2px 6px rgba(255,255,255,0.08),
+        inset 0 -2px 6px rgba(0,0,0,0.25);
+      transition: transform 120ms ease;
+    }
+    .knob-indicator {
+      position: absolute;
+      top: 12px; left: 50%;
+      width: 6px; height: 22px;
+      border-radius: 4px;
+      background: linear-gradient(180deg, var(--accent-ice), var(--accent-teal));
+      box-shadow: var(--glow-ice);
+      transform-origin: 50% 34px;
+      transform: translateX(-50%) rotate(-40deg);
+    }
+    .knob-label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .knob-label span:first-child {
+      font-size: 0.7rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .knob-label span.value {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 600;
+      font-size: 1rem;
+      padding: 6px 10px;
+      background: var(--bg-surface);
+      border-radius: 8px;
+      border: 1px solid var(--border-soft);
+      min-width: 64px;
+      text-align: center;
+    }
+
+    /* Fader */
+    .fader {
+      position: relative;
+      height: 200px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .fader-track {
+      position: relative;
+      width: 14px;
+      height: 100%;
+      background: linear-gradient(180deg, #0f131c, #1a2232);
+      border-radius: 10px;
+      border: 1px solid var(--border-soft);
+      box-shadow: inset 0 2px 10px rgba(0,0,0,0.45);
+      overflow: hidden;
+      transition: box-shadow 160ms ease;
+    }
+    .fader-track:hover {
+      box-shadow:
+        inset 0 2px 12px rgba(0,0,0,0.55),
+        0 0 12px rgba(109,226,255,0.3);
+    }
+    .fader-fill {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 70%;
+      background: linear-gradient(180deg, #7ff1ff, #3ac9ff 50%, #f0b35b 100%);
+      box-shadow: var(--glow-ice);
+    }
+    .fader-thumb {
+      position: absolute; left: 50%;
+      width: 42px; height: 22px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #3a404d, #1f2431);
+      transform: translate(-50%, 50%);
+      bottom: 70%;
+      box-shadow:
+        0 10px 22px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.12),
+        inset 0 -1px 0 rgba(0,0,0,0.4);
+      transition: transform 180ms cubic-bezier(0.34,1.56,0.64,1);
+      cursor: grab;
+    }
+    .fader-thumb:hover { transform: translate(-50%, 40%) scale(1.04); }
+    .fader-thumb:active { cursor: grabbing; transform: translate(-50%, 45%) scale(1.02); }
+
+    .fader-scale {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 200px;
+      color: var(--text-dim);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.7rem;
+    }
+    .fader-value {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.95rem;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-soft);
+      background: var(--bg-surface);
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /* Meter */
+    .meter {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.3), 0 10px 24px rgba(0,0,0,0.35);
+      position: relative;
+      overflow: hidden;
+    }
+    .meter::after {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%);
+      mix-blend-mode: screen;
+      pointer-events: none;
+    }
+    .meter-bars {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+    .bar-stack {
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 4px;
+      align-items: center;
+    }
+    .bar {
+      width: 30px;
+      height: 9px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.04);
+      transition: box-shadow 80ms ease, transform 80ms ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .bar::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      opacity: 0;
+      transition: opacity 100ms ease;
+    }
+    .bar.active-green {
+      background: linear-gradient(90deg, #00d48a, #58ffb3);
+      box-shadow: 0 0 12px rgba(88,255,179,0.45);
+    }
+    .bar.active-amber {
+      background: linear-gradient(90deg, #f0b35b, #ffde8a);
+      box-shadow: var(--glow-gold);
+    }
+    .bar.active-red {
+      background: linear-gradient(90deg, #ff6b8f, #ffb3c7);
+      box-shadow: var(--glow-rose);
+    }
+    .bar.active-green::before,
+    .bar.active-amber::before,
+    .bar.active-red::before { opacity: 1; }
+    .bar.peak { box-shadow: 0 0 16px rgba(255,255,255,0.7) !important; background: #fff !important; }
+
+    /* Waveform */
+    .wave {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-soft);
+      border-radius: 14px;
+      padding: 14px 16px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 16px 36px rgba(0,0,0,0.45);
+      max-width: 760px;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    .wave-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+    .wave-time {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 600;
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-soft);
+    }
+    .wave-display {
+      height: 88px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent);
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .wave-canvas { width: 100%; height: 100%; }
+    .playhead {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 2px;
+      background: var(--accent-ice);
+      box-shadow: var(--glow-ice);
+      left: 0;
+      transition: left 50ms linear;
+    }
+    .playhead::before {
+      content: "";
+      position: absolute; top: -6px; left: 50%;
+      transform: translateX(-50%);
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 8px solid var(--accent-ice);
+      filter: drop-shadow(0 0 6px var(--glow-ice));
+    }
+    .loop {
+      position: absolute;
+      top: 0; bottom: 0;
+      background: rgba(136, 68, 255, 0.14);
+      border-left: 2px solid var(--accent-rose);
+      border-right: 2px solid var(--accent-rose);
+      pointer-events: none;
+      display: none;
+      box-shadow: 0 0 14px rgba(136,68,255,0.35);
+    }
+
+    /* Footer tip */
+    .note {
+      margin-top: 18px;
+      text-align: center;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="header">
+      <div class="badge">HP</div>
+      <div class="title">Refined Transport</div>
+    </div>
+
+    <div class="transport">
+      <button class="t-btn ghost" id="prev"><svg viewBox="0 0 24 24"><path d="M6 12l10 7V5z"></path></svg></button>
+      <button class="t-btn primary" id="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></button>
+      <button class="t-btn ghost" id="pause"><svg viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"></path></svg></button>
+      <button class="t-btn ghost" id="stop"><svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"></path></svg></button>
+      <button class="t-btn record" id="rec"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"></circle></svg></button>
+    </div>
+
+    <div class="grid">
+      <!-- Knob -->
+      <div class="knob-wrap">
+        <div class="knob" data-value="65">
+          <div class="knob-ring"></div>
+          <div class="knob-face">
+            <div class="knob-indicator"></div>
+          </div>
+        </div>
+        <div class="knob-label">
+          <span>Gain</span>
+          <span class="value">65</span>
+        </div>
+      </div>
+
+      <!-- Fader -->
+      <div class="fader">
+        <div class="fader-scale">
+          <span>+12</span><span>+6</span><span>0</span><span>-6</span><span>-12</span><span>-∞</span>
+        </div>
+        <div class="fader-track">
+          <div class="fader-fill"></div>
+          <div class="fader-thumb"></div>
+        </div>
+        <div class="fader-value">+6.0 dB</div>
+      </div>
+
+      <!-- Meter -->
+      <div class="meter">
+        <div class="meter-bars">
+          <div class="bar-stack" id="meterL"></div>
+          <div class="bar-stack" id="meterR"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Waveform -->
+  <div class="wave">
+    <div class="wave-header">
+      <span>Waveform</span>
+      <span class="wave-time" id="time">00:00.000 / 03:24.512</span>
+    </div>
+    <div class="wave-display" id="waveArea">
+      <canvas class="wave-canvas" id="waveCanvas"></canvas>
+      <div class="loop" id="loop"></div>
+      <div class="playhead" id="playhead"></div>
+    </div>
+  </div>
+
+  <div class="note">
+    Drag knobs/fader; hover for glow. Play to see meters animate. Click waveform to seek.
+  </div>
+
+  <script>
+    /* Meter setup */
+    const segmentCount = 18;
+    ['meterL','meterR'].forEach(id => {
+      const stack = document.getElementById(id);
+      for (let i = 0; i < segmentCount; i++) {
+        const div = document.createElement('div');
+        div.className = 'bar';
+        stack.appendChild(div);
+      }
+    });
+
+    /* Waveform */
+    const waveCanvas = document.getElementById('waveCanvas');
+    const waveCtx = waveCanvas.getContext('2d');
+    const playhead = document.getElementById('playhead');
+    const loopEl = document.getElementById('loop');
+    const waveArea = document.getElementById('waveArea');
+    const timeEl = document.getElementById('time');
+    let playPos = 0;
+    let loopActive = false;
+    const duration = 204.512;
+
+    function resizeWave() {
+      const rect = waveArea.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      waveCanvas.width = rect.width * dpr;
+      waveCanvas.height = rect.height * dpr;
+      waveCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawWave();
+    }
+    window.addEventListener('resize', resizeWave);
+
+    function drawWave() {
+      const w = waveCanvas.width / (window.devicePixelRatio || 1);
+      const h = waveCanvas.height / (window.devicePixelRatio || 1);
+      waveCtx.clearRect(0,0,w,h);
+      const grad = waveCtx.createLinearGradient(0,0,0,h);
+      grad.addColorStop(0, 'rgba(109,226,255,0.8)');
+      grad.addColorStop(0.5, 'rgba(58,201,255,0.5)');
+      grad.addColorStop(1, 'rgba(240,179,91,0.3)');
+      waveCtx.fillStyle = grad;
+      waveCtx.beginPath();
+      waveCtx.moveTo(0, h/2);
+      const samples = 240;
+      for (let i=0;i<=samples;i++) {
+        const x = (i/samples)*w;
+        const noise = Math.sin(i*0.22) * Math.cos(i*0.11) * Math.sin(i*0.05+1.4);
+        const env = Math.sin((i/samples)*Math.PI);
+        const amp = noise * env * h * 0.32;
+        waveCtx.lineTo(x, h/2 - amp);
+      }
+      for (let i=samples;i>=0;i--) {
+        const x = (i/samples)*w;
+        const noise = Math.sin(i*0.22) * Math.cos(i*0.11) * Math.sin(i*0.05+1.4);
+        const env = Math.sin((i/samples)*Math.PI);
+        const amp = noise * env * h * 0.32;
+        waveCtx.lineTo(x, h/2 + amp);
+      }
+      waveCtx.closePath();
+      waveCtx.fill();
+      waveCtx.strokeStyle = 'rgba(255,255,255,0.08)';
+      waveCtx.beginPath();
+      waveCtx.moveTo(0,h/2);
+      waveCtx.lineTo(w,h/2);
+      waveCtx.stroke();
+    }
+    resizeWave();
+
+    waveArea.addEventListener('click', e => {
+      const rect = waveArea.getBoundingClientRect();
+      playPos = (e.clientX - rect.left) / rect.width;
+      updatePlayhead();
+    });
+
+    function updatePlayhead() {
+      playhead.style.left = `${playPos*100}%`;
+      const t = playPos * duration;
+      timeEl.textContent = `${fmt(t)} / ${fmt(duration)}`;
+    }
+
+    function fmt(s) {
+      const m = Math.floor(s/60), sec = Math.floor(s%60), ms = Math.floor((s%1)*1000);
+      return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
+    }
+
+    /* Knob interaction */
+    const knob = document.querySelector('.knob');
+    const knobValue = document.querySelector('.knob-label .value');
+    let knobDrag = false, startY = 0, startVal = 65;
+    knob.addEventListener('mousedown', e => { knobDrag = true; startY = e.clientY; startVal = parseFloat(knob.dataset.value); });
+    window.addEventListener('mouseup', () => { knobDrag = false; });
+    window.addEventListener('mousemove', e => {
+      if (!knobDrag) return;
+      const delta = (startY - e.clientY) * 0.5;
+      const val = Math.max(0, Math.min(100, startVal + delta));
+      knob.dataset.value = val;
+      knobValue.textContent = Math.round(val);
+      const deg = (val/100)*270 - 135;
+      knob.querySelector('.knob-indicator').style.transform = `translateX(-50%) rotate(${deg}deg)`;
+    });
+
+    /* Fader interaction */
+    const track = document.querySelector('.fader-track');
+    const fill = document.querySelector('.fader-fill');
+    const thumb = document.querySelector('.fader-thumb');
+    const fVal = document.querySelector('.fader-value');
+    let dragFader = false;
+
+    function setFader(clientY) {
+      const rect = track.getBoundingClientRect();
+      let p = 1 - (clientY - rect.top)/rect.height;
+      p = Math.max(0, Math.min(1,p));
+      fill.style.height = `${p*100}%`;
+      thumb.style.bottom = `${p*100}%`;
+      const dB = p === 0 ? '-∞' : ((p*24)-12).toFixed(1);
+      fVal.textContent = `${dB} dB`;
+    }
+    track.addEventListener('mousedown', e => { dragFader = true; setFader(e.clientY); });
+    window.addEventListener('mouseup', ()=> dragFader=false);
+    window.addEventListener('mousemove', e => { if (dragFader) setFader(e.clientY); });
+
+    /* Transport + meters */
+    let playing = false, raf;
+    const barsL = document.querySelectorAll('#meterL .bar');
+    const barsR = document.querySelectorAll('#meterR .bar');
+
+    function meterUpdate() {
+      const valL = Math.random()*100;
+      const valR = Math.random()*100;
+      const peakL = valL + Math.random()*10;
+      const peakR = valR + Math.random()*10;
+      applyMeter(barsL, valL, peakL);
+      applyMeter(barsR, valR, peakR);
+    }
+    function applyMeter(bars, lvl, peak) {
+      bars.forEach((bar,i)=>{
+        const t = ((i+1)/segmentCount)*100;
+        bar.className = 'bar';
+        if (lvl >= t) {
+          if (i >= segmentCount-2) bar.classList.add('active-red');
+          else if (i >= segmentCount-4) bar.classList.add('active-amber');
+          else bar.classList.add('active-green');
+        }
+        if (peak >= t && peak < t + (100/segmentCount)) bar.classList.add('peak');
+      });
+    }
+
+    function loopAnim() {
+      if (!playing) return;
+      playPos += 0.0004;
+      if (playPos >= 1) playPos = 0;
+      updatePlayhead();
+      meterUpdate();
+      raf = requestAnimationFrame(loopAnim);
+    }
+
+    document.getElementById('play').addEventListener('click', ()=>{ playing=true; cancelAnimationFrame(raf); raf=requestAnimationFrame(loopAnim); });
+    document.getElementById('pause').addEventListener('click', ()=>{ playing=false; cancelAnimationFrame(raf); });
+    document.getElementById('stop').addEventListener('click', ()=>{ playing=false; cancelAnimationFrame(raf); playPos=0; updatePlayhead(); });
+    document.getElementById('rec').addEventListener('click', ()=>{ loopActive=!loopActive; loopEl.style.display = loopActive?'block':'none'; });
+
+    updatePlayhead();
+  </script>
+</body>
+</html>

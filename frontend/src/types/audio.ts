@@ -224,6 +224,8 @@ export interface AudioAnalysisResult {
   melody?: MelodyAnalysis;
   spectral?: SpectralFeatures;
   mfcc?: number[];
+  melSpectrogram?: Float32Array;
+  spectralEnvelope?: Float32Array;
   genre?: {
     genre: string;
     confidence: number;
@@ -317,6 +319,7 @@ export interface AudioAnalysisResult {
 
 export interface AnalysisProgress {
   stage: 'decoding' | 'analyzing' | 'complete' | 'batch';
+  mlPending?: boolean;
   percentage: number;
   progress: number; // 0-1
   currentStep: string;
@@ -332,6 +335,13 @@ export interface EngineStatus {
   message?: string;
   modelsLoaded?: number;
   totalModels?: number;
+  mlStatus?: {
+    isInitialized: boolean;
+    isWarmingUp: boolean;
+    isUnavailable: boolean;
+    restartCount: number;
+    warmupAttempts: number;
+  };
 }
 
 export interface WorkerMessage {
@@ -360,11 +370,43 @@ export interface ModelConfig {
   genre?: string;
 }
 
+export interface FeatureToggles {
+  spectral?: boolean;
+  tempo?: boolean;
+  key?: boolean;
+  mfcc?: boolean;
+  onset?: boolean;
+  segments?: boolean;
+  mlClassification?: boolean;
+}
+
+/**
+ * Unified engine configuration for all analysis backends.
+ * Centralizes frame/hop settings, feature toggles, and backend selection.
+ */
+export interface EngineConfig {
+  /** Frame size for windowed analysis (default: 2048) */
+  frameSize?: number;
+  /** Hop size for window advancement (default: 1024) */
+  hopSize?: number;
+  /** Feature toggles to enable/disable specific analyses */
+  featureToggles?: FeatureToggles;
+  /** Backend to use: 'essentia' (batch), 'streaming', or 'mock' (testing) */
+  backend?: 'essentia' | 'streaming' | 'mock';
+  /** Progress callback for long-running analyses */
+  progressCallback?: (progress: AnalysisProgress) => void;
+  /** ML model configuration */
+  modelConfig?: ModelConfig;
+}
+
 export interface AnalysisOptions {
   includeAdvanced?: boolean;
   forceStreaming?: boolean;
   progressCallback?: (progress: AnalysisProgress) => void;
   modelConfig?: ModelConfig;
+  featureToggles?: FeatureToggles;
+  /** Unified engine configuration (preferred over individual fields) */
+  engineConfig?: EngineConfig;
 }
 
 export interface ExportOptions {

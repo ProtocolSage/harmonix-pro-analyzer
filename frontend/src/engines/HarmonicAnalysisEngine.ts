@@ -11,10 +11,12 @@
  */
 
 import type { HarmonicAnalysis, KeyAnalysis } from '../types/audio';
+import type Essentia from 'essentia.js/dist/essentia.js-core.es.js';
 
 export class HarmonicAnalysisEngine {
   private sampleRate: number;
   private key: KeyAnalysis;
+  private essentia: Essentia | null = null;
 
   // Note mapping for Roman numeral analysis
   private static readonly NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -40,9 +42,10 @@ export class HarmonicAnalysisEngine {
     { pattern: ['I', 'III', 'IV', 'iv'], name: 'Royal Road', strength: 0.75 },
   ];
 
-  constructor(sampleRate: number, key: KeyAnalysis) {
+  constructor(sampleRate: number, key: KeyAnalysis, essentia?: any) {
     this.sampleRate = sampleRate;
     this.key = key;
+    this.essentia = essentia || null;
   }
 
   /**
@@ -110,7 +113,49 @@ export class HarmonicAnalysisEngine {
     root: string;
     quality: string;
     inversion: number;
+    confidence?: number;
   }>> {
+    if (this.essentia) {
+      const frameSize = 4096;
+      const hopSize = 2048;
+      const channelData = audioBuffer.getChannelData(0);
+      const inputVector = this.essentia.arrayToVector(channelData);
+      
+      const hpcpResult = this.essentia.HPCP(inputVector, {
+        sampleRate: this.sampleRate,
+        hopSize: hopSize,
+        frameSize: frameSize
+      });
+
+      const chordsResult = this.essentia.ChordsDetection(hpcpResult.hpcp, {
+        hopSize: hopSize,
+        sampleRate: this.sampleRate
+      });
+
+      const detectedChords = Array.from(this.essentia.vectorToArray(chordsResult.chords));
+      const strengths = Array.from(this.essentia.vectorToArray(chordsResult.strength));
+
+      inputVector.delete();
+      hpcpResult.hpcp.delete();
+      chordsResult.chords.delete();
+      chordsResult.strength.delete();
+
+      return detectedChords.map((chord, i) => {
+        const root = chord.split(':')[0] || chord;
+        const quality = chord.includes(':') ? chord.split(':')[1] : 'major';
+        return {
+          chord: chord.replace(':', ' '),
+          start: i * hopSize / this.sampleRate,
+          end: (i + 1) * hopSize / this.sampleRate,
+          duration: hopSize / this.sampleRate,
+          root,
+          quality,
+          inversion: 0,
+          confidence: strengths[i]
+        };
+      });
+    }
+
     const chords: Array<{
       chord: string;
       start: number;

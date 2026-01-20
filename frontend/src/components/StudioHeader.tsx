@@ -1,7 +1,11 @@
 import React from 'react';
-import { Music2, Activity } from 'lucide-react';
+import { Music2, Activity, Sun, Moon } from 'lucide-react';
+import { useUI } from '../contexts/UIContext';
 
 export function StudioHeader() {
+  const { state, toggleTheme } = useUI();
+  const isLight = state.theme === 'light';
+
   return (
     <header className="studio-card-glass" style={{
       marginBottom: '32px',
@@ -38,19 +42,36 @@ export function StudioHeader() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="studio-badge studio-badge-info">
-            <Music2 className="w-3 h-3" />
-            <span>Studio Grade</span>
-          </div>
-          <div style={{
-            fontSize: '11px',
-            color: 'var(--studio-text-tertiary)',
-            fontFamily: 'var(--font-mono)',
-            textAlign: 'right'
-          }}>
-            <div>Powered by Essentia.js</div>
-            <div style={{ marginTop: '2px' }}>TensorFlow.js ML</div>
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={toggleTheme}
+            className="hp-icon-btn"
+            title={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
+            style={{ 
+              background: 'transparent', 
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              padding: '8px',
+              color: 'var(--text-1)'
+            }}
+          >
+            {isLight ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="studio-badge studio-badge-info">
+              <Music2 className="w-3 h-3" />
+              <span>Studio Grade</span>
+            </div>
+            <div style={{
+              fontSize: '11px',
+              color: 'var(--studio-text-tertiary)',
+              fontFamily: 'var(--font-mono)',
+              textAlign: 'right'
+            }}>
+              <div>Powered by Essentia.js</div>
+              <div style={{ marginTop: '2px' }}>TensorFlow.js ML</div>
+            </div>
           </div>
         </div>
       </div>

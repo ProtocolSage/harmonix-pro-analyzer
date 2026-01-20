@@ -13,7 +13,10 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 200",
     "lint:fix": "npm run lint -- --fix",
     "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck && npm run lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:typecheck": "npm run typecheck && npm run lint",
     "test:integration": "node test-integration.js",
     "preview": "vite preview",
     "clean": "rimraf dist"
@@ -27,27 +30,38 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
     "@types/node": "^20.19.2",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^7.15.0",
     "@typescript-eslint/parser": "^7.15.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "@vitest/coverage-v8": "^1.6.1",
     "autoprefixer": "^10.4.20",
     "cross-env": "^7.0.3",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.7",
+    "jsdom": "^24.1.0",
     "postcss": "^8.4.41",
     "rimraf": "^5.0.5",
     "rollup-plugin-visualizer": "^5.12.0",
     "tailwindcss": "^3.4.10",
     "terser": "^5.31.0",
     "typescript": "^5.2.2",
-    "vite": "^5.3.4",
+    "vite": "^6.1.7",
     "vite-bundle-analyzer": "^0.7.0",
-    "vite-plugin-pwa": "^0.20.0",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^1.6.0",
     "workbox-window": "^7.1.0"
+  },
+  "overrides": {
+    "glob": "^10.5.0",
+    "esbuild": "^0.25.0",
+    "js-yaml": "^4.1.1"
   }
 }

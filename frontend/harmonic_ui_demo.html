@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HARMONIX PRO — Workstation UI</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        /* ============ DARK THEME (default) ============ */
+        :root {
+            --bg-deep: #08080a;
+            --bg-panel: #0d0d10;
+            --bg-surface: #131318;
+            --bg-elevated: #1a1a20;
+            --border-subtle: rgba(255, 255, 255, 0.04);
+            --border-glow: rgba(255, 255, 255, 0.08);
+            --text-primary: #e8e8ec;
+            --text-secondary: #8888a0;
+            --text-muted: #5a5a70;
+            --accent-cyan: #00d4ff;
+            --accent-blue: #0088ff;
+            --accent-purple: #8844ff;
+            --accent-magenta: #ff44aa;
+            --accent-amber: #ffaa00;
+            --accent-green: #00ff88;
+            --accent-red: #ff4466;
+            --glow-cyan: rgba(0, 212, 255, 0.5);
+            --glow-blue: rgba(0, 136, 255, 0.4);
+            --glow-purple: rgba(136, 68, 255, 0.4);
+            --toggle-glow: var(--accent-cyan);
+            --toggle-color: var(--accent-cyan);
+            --shadow-color: rgba(0, 0, 0, 0.4);
+            --inset-shadow: rgba(0, 0, 0, 0.5);
+        }
+
+        /* ============ LIGHT THEME ============ */
+        [data-theme="light"] {
+            --bg-deep: #f5f5f0;
+            --bg-panel: #ffffff;
+            --bg-surface: #eeeee8;
+            --bg-elevated: #fafaf8;
+            --border-subtle: rgba(0, 0, 0, 0.06);
+            --border-glow: rgba(0, 0, 0, 0.08);
+            --text-primary: #1a1a1e;
+            --text-secondary: #5a5a70;
+            --text-muted: #8888a0;
+            --accent-cyan: #0099cc;
+            --accent-blue: #0066aa;
+            --accent-purple: #6633cc;
+            --accent-magenta: #cc3388;
+            --accent-amber: #cc8800;
+            --accent-green: #00aa66;
+            --accent-red: #cc3344;
+            --glow-cyan: rgba(0, 153, 204, 0.25);
+            --glow-blue: rgba(0, 102, 170, 0.2);
+            --glow-purple: rgba(102, 51, 204, 0.2);
+            --toggle-glow: rgba(200, 195, 180, 0.6);
+            --toggle-color: #c8c3b4;
+            --shadow-color: rgba(0, 0, 0, 0.08);
+            --inset-shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: var(--bg-deep);
+            background-image:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 136, 255, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 80% 100%, rgba(136, 68, 255, 0.04) 0%, transparent 50%);
+            font-family: 'Inter', -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            gap: 2rem;
+            overflow-x: hidden;
+        }
+
+        /* ============ HEADER ============ */
+        .header {
+            text-align: center;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        /* STATUS DOT - "Power On" Indicator */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow:
+                0 0 8px var(--accent-cyan),
+                0 0 16px var(--glow-cyan),
+                0 0 32px var(--glow-blue);
+            animation: statusPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes statusPulse {
+
+            0%,
+            100% {
+                opacity: 0.7;
+                box-shadow:
+                    0 0 6px var(--accent-cyan),
+                    0 0 12px var(--glow-cyan);
+            }
+
+            50% {
+                opacity: 1;
+                box-shadow:
+                    0 0 10px var(--accent-cyan),
+                    0 0 20px var(--glow-cyan),
+                    0 0 40px var(--glow-blue);
+            }
+        }
+
+        .header-text h1 {
+            font-size: 0.7rem;
+            font-weight: 500;
+            letter-spacing: 0.4em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+
+        .header-text h2 {
+            font-size: 1.5rem;
+            font-weight: 300;
+            letter-spacing: 0.08em;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ============ PANEL WITH ACCENT STRIP ============ */
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 2rem;
+            display: flex;
+            align-items: flex-end;
+            gap: 2.5rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow:
+                0 0 0 1px var(--border-glow),
+                0 20px 60px -20px rgba(0, 0, 0, 0.7),
+                0 40px 80px -40px rgba(0, 136, 255, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        /* ACCENT STRIP - Top edge glow */
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 10%;
+            right: 10%;
+            height: 1px;
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    var(--accent-cyan) 20%,
+                    var(--accent-blue) 50%,
+                    var(--accent-cyan) 80%,
+                    transparent 100%);
+            box-shadow:
+                0 0 8px var(--accent-cyan),
+                0 0 20px var(--glow-cyan),
+                0 2px 30px var(--glow-blue);
+            opacity: 0.8;
+        }
+
+        /* Inner surface gradient */
+        .panel::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(180deg, rgba(0, 180, 255, 0.03) 0%, transparent 100%);
+            pointer-events: none;
+        }
+
+        /* ============ TRANSPORT ============ */
+        .transport {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: var(--bg-surface);
+            border-radius: 14px;
+            border: 1px solid var(--border-subtle);
+            position: relative;
+        }
+
+        /* Transport active underline glow */
+        .transport::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 20%;
+            right: 20%;
+            height: 1px;
+            background: transparent;
+            transition: all 0.4s ease;
+        }
+
+        .transport.playing::after {
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+            box-shadow: 0 0 12px var(--glow-cyan);
+        }
+
+        .transport-btn {
+            width: 48px;
+            height: 48px;
+            border: none;
+            border-radius: 10px;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            position: relative;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .transport-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 10px;
+            background: linear-gradient(145deg, var(--bg-elevated) 0%, var(--bg-surface) 100%);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .transport-btn:hover {
+            color: var(--text-primary);
+            transform: translateY(-2px) scale(1.05);
+        }
+
+        .transport-btn:hover::before {
+            opacity: 1;
+        }
+
+        .transport-btn:active {
+            transform: translateY(1px) scale(0.98);
+            transition: all 0.08s ease;
+        }
+
+        .transport-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+            position: relative;
+            z-index: 1;
+            filter: drop-shadow(0 0 6px currentColor);
+            transition: filter 0.25s ease;
+        }
+
+        .transport-btn.active {
+            color: var(--accent-cyan);
+        }
+
+        .transport-btn.active::before {
+            opacity: 1;
+            background: linear-gradient(145deg, rgba(0, 212, 255, 0.12) 0%, rgba(0, 136, 255, 0.04) 100%);
+        }
+
+        .transport-btn.active::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 12px;
+            background: var(--accent-cyan);
+            opacity: 0.15;
+            filter: blur(10px);
+            animation: btnPulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes btnPulse {
+
+            0%,
+            100% {
+                opacity: 0.1;
+            }
+
+            50% {
+                opacity: 0.25;
+            }
+        }
+
+        /* ============ KNOB ============ */
+        .knob-group {
+            display: flex;
+            gap: 1.75rem;
+        }
+
+        .knob-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .knob {
+            width: 68px;
+            height: 68px;
+            position: relative;
+            cursor: grab;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .knob:hover {
+            transform: scale(1.06);
+        }
+
+        .knob:active {
+            cursor: grabbing;
+            transform: scale(1.03);
+        }
+
+        .knob-outer {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: linear-gradient(145deg, var(--bg-elevated) 0%, var(--bg-panel) 100%);
+            border: 1px solid var(--border-subtle);
+            box-shadow:
+                0 4px 16px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        .knob-track-svg {
+            position: absolute;
+            inset: 4px;
+            transform: rotate(-135deg);
+        }
+
+        .knob-track-bg {
+            fill: none;
+            stroke: var(--bg-surface);
+            stroke-width: 3;
+            stroke-linecap: round;
+        }
+
+        .knob-track-fill {
+            fill: none;
+            stroke: url(#knobGradient);
+            stroke-width: 3;
+            stroke-linecap: round;
+            filter: drop-shadow(0 0 5px var(--glow-cyan));
+            transition: stroke-dashoffset 0.12s ease-out;
+        }
+
+        .knob-inner {
+            position: absolute;
+            top: 15%;
+            left: 15%;
+            right: 15%;
+            bottom: 15%;
+            border-radius: 50%;
+            background:
+                radial-gradient(ellipse 100% 100% at 30% 20%, rgba(255, 255, 255, 0.06) 0%, transparent 50%),
+                linear-gradient(145deg, var(--bg-elevated) 0%, var(--bg-panel) 100%);
+            border: 1px solid var(--border-glow);
+            box-shadow:
+                0 6px 20px rgba(0, 0, 0, 0.5),
+                inset 0 2px 4px rgba(255, 255, 255, 0.04);
+            transition: transform 0.08s ease-out;
+        }
+
+        .knob-indicator {
+            position: absolute;
+            top: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 10px;
+            background: linear-gradient(to bottom, var(--accent-cyan), var(--accent-blue));
+            border-radius: 1px;
+            box-shadow: 0 0 8px var(--glow-cyan), 0 0 16px var(--glow-blue);
+        }
+
+        .knob-label {
+            font-size: 0.6rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        .knob-value {
+            font-size: 0.8rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            color: var(--text-primary);
+            background: var(--bg-surface);
+            padding: 0.2rem 0.6rem;
+            border-radius: 5px;
+            border: 1px solid var(--border-subtle);
+            min-width: 42px;
+            text-align: center;
+        }
+
+        /* ============ FADER ============ */
+        .fader-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .fader-label {
+            font-size: 0.6rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        .fader-body {
+            display: flex;
+            align-items: stretch;
+            gap: 0.75rem;
+        }
+
+        .fader-scale {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 160px;
+            padding: 4px 0;
+        }
+
+        .fader-scale span {
+            font-size: 0.55rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            text-align: right;
+        }
+
+        .fader-channel {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .fader-track {
+            width: 8px;
+            height: 160px;
+            background: var(--bg-surface);
+            border-radius: 4px;
+            position: relative;
+            cursor: pointer;
+            border: 1px solid var(--border-subtle);
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+            overflow: visible;
+        }
+
+        .fader-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+            border-radius: 0 0 3px 3px;
+            transition: height 0.08s ease-out;
+        }
+
+        .fader-fill::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, transparent 0%, rgba(255, 255, 255, 0.25) 100%);
+        }
+
+        .fader-glow {
+            position: absolute;
+            bottom: 0;
+            left: -6px;
+            right: -6px;
+            background: linear-gradient(to top, var(--glow-cyan), transparent);
+            filter: blur(8px);
+            opacity: 0.5;
+            transition: height 0.08s ease-out;
+            pointer-events: none;
+        }
+
+        .fader-handle {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 32px;
+            height: 24px;
+            background: linear-gradient(180deg, #3a3a45 0%, #2a2a32 50%, #1a1a22 100%);
+            border-radius: 3px;
+            box-shadow:
+                0 3px 10px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+            transition: bottom 0.08s ease-out, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: grab;
+        }
+
+        .fader-handle:hover {
+            transform: translateX(-50%) scale(1.08);
+        }
+
+        .fader-handle:active {
+            cursor: grabbing;
+            transform: translateX(-50%) scale(1.04);
+        }
+
+        .fader-handle::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 5px;
+            right: 5px;
+            transform: translateY(-50%);
+            height: 8px;
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(255, 255, 255, 0.08) 2px,
+                    rgba(255, 255, 255, 0.08) 3px);
+            border-radius: 1px;
+        }
+
+        .fader-channel-label {
+            font-size: 0.55rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+        }
+
+        .fader-value {
+            font-size: 0.8rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            color: var(--text-primary);
+            background: var(--bg-surface);
+            padding: 0.2rem 0.6rem;
+            border-radius: 5px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        /* ============ SPECTRUM ANALYZER ============ */
+        .spectrum-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .spectrum-label {
+            font-size: 0.6rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        .spectrum-body {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 0.75rem;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .spectrum-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 80px;
+        }
+
+        .spectrum-bar {
+            width: 4px;
+            background: linear-gradient(to top, var(--accent-blue), var(--accent-cyan));
+            border-radius: 2px 2px 0 0;
+            transition: height 0.06s ease-out;
+            position: relative;
+        }
+
+        .spectrum-bar::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, transparent 0%, rgba(255, 255, 255, 0.3) 100%);
+            border-radius: inherit;
+        }
+
+        .spectrum-bar.high {
+            background: linear-gradient(to top, var(--accent-amber), var(--accent-red));
+        }
+
+        /* ============ VU METER ============ */
+        .meter-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .meter-label {
+            font-size: 0.6rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        .meter-body {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 0.75rem;
+            display: flex;
+            gap: 1rem;
+            position: relative;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .meter-channel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .meter-bars {
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 2px;
+        }
+
+        .meter-bar {
+            width: 24px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 1px;
+            transition: all 0.06s ease;
+        }
+
+        .meter-bar.active-green {
+            background: linear-gradient(90deg, #00cc66, #00ff88);
+            box-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+        }
+
+        .meter-bar.active-amber {
+            background: linear-gradient(90deg, #ff9900, #ffcc00);
+            box-shadow: 0 0 10px rgba(255, 170, 0, 0.5);
+        }
+
+        .meter-bar.active-red {
+            background: linear-gradient(90deg, #ff3344, #ff6677);
+            box-shadow: 0 0 12px rgba(255, 68, 102, 0.6);
+        }
+
+        .meter-bar.peak {
+            background: #ffffff !important;
+            box-shadow: 0 0 16px rgba(255, 255, 255, 0.7) !important;
+        }
+
+        .meter-channel-label {
+            font-size: 0.55rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+        }
+
+        /* ============ WAVEFORM ============ */
+        .waveform-container {
+            width: 100%;
+            max-width: 560px;
+        }
+
+        .waveform-panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 1.25rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow:
+                0 0 0 1px var(--border-glow),
+                0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Waveform panel accent strip */
+        .waveform-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 15%;
+            right: 15%;
+            height: 1px;
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    var(--accent-purple) 30%,
+                    var(--accent-cyan) 70%,
+                    transparent 100%);
+            box-shadow: 0 0 12px var(--glow-purple), 0 0 20px var(--glow-cyan);
+            opacity: 0.6;
+        }
+
+        .waveform-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .waveform-title {
+            font-size: 0.6rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .waveform-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-primary);
+            background: var(--bg-surface);
+            padding: 0.2rem 0.6rem;
+            border-radius: 5px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .waveform-display {
+            height: 70px;
+            background: var(--bg-surface);
+            border-radius: 6px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .waveform-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .waveform-playhead {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 10px var(--glow-cyan), 0 0 20px var(--glow-cyan);
+            transition: left 0.04s linear;
+        }
+
+        .waveform-playhead::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid var(--accent-cyan);
+            filter: drop-shadow(0 0 3px var(--glow-cyan));
+        }
+
+        .waveform-loop {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            background: rgba(136, 68, 255, 0.12);
+            border-left: 2px solid var(--accent-purple);
+            border-right: 2px solid var(--accent-purple);
+            pointer-events: none;
+            box-shadow: inset 0 0 20px rgba(136, 68, 255, 0.1);
+        }
+
+        /* ============ FOOTER ============ */
+        .footer {
+            text-align: center;
+            max-width: 480px;
+        }
+
+        .footer p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+        }
+
+        .footer strong {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .footer .kbd {
+            display: inline-block;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+        }
+
+        /* ============ THEME TOGGLE ============ */
+        .theme-toggle {
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+            z-index: 100;
+            opacity: 0.6;
+            transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .theme-toggle:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .theme-toggle svg {
+            width: 100%;
+            height: 100%;
+            fill: none;
+            stroke: var(--toggle-color);
+            stroke-width: 1.5;
+            filter: drop-shadow(0 0 4px var(--toggle-glow));
+            transition: stroke 0.4s ease, filter 0.4s ease;
+        }
+
+        .theme-toggle .sun {
+            display: block;
+        }
+
+        .theme-toggle .moon {
+            display: none;
+        }
+
+        [data-theme="light"] .theme-toggle .sun {
+            display: none;
+        }
+
+        [data-theme="light"] .theme-toggle .moon {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- SVG Defs -->
+    <svg width="0" height="0" style="position: absolute;">
+        <defs>
+            <linearGradient id="knobGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#00d4ff" />
+                <stop offset="100%" stop-color="#0088ff" />
+            </linearGradient>
+        </defs>
+    </svg>
+
+    <!-- Theme Toggle -->
+    <button class="theme-toggle" id="themeToggle" title="Toggle Theme (T)">
+        <!-- Sun icon (shown in dark mode) -->
+        <svg class="sun" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="4" />
+            <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+        </svg>
+        <!-- Moon icon (shown in light mode) -->
+        <svg class="moon" viewBox="0 0 24 24">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+    </button>
+
+    <!-- Header with Status Dot -->
+    <header class="header">
+        <div class="status-dot"></div>
+        <div class="header-text">
+            <h1>Harmonix Pro</h1>
+            <h2>Workstation Aesthetic</h2>
+        </div>
+    </header>
+
+    <!-- Transport -->
+    <div class="panel transport" id="transportPanel" style="padding: 0.6rem;">
+        <button class="transport-btn" id="playBtn" title="Play (Space)">
+            <svg viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+            </svg>
+        </button>
+        <button class="transport-btn" id="pauseBtn" title="Pause">
+            <svg viewBox="0 0 24 24">
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+            </svg>
+        </button>
+        <button class="transport-btn" id="stopBtn" title="Stop">
+            <svg viewBox="0 0 24 24">
+                <path d="M6 6h12v12H6z" />
+            </svg>
+        </button>
+        <button class="transport-btn" id="loopBtn" title="Loop (L)">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Main Controls -->
+    <div class="panel">
+
+        <!-- Knobs -->
+        <div class="knob-group">
+            <div class="knob-container">
+                <div class="knob" id="knob1" data-value="65">
+                    <div class="knob-outer"></div>
+                    <svg class="knob-track-svg" viewBox="0 0 64 64">
+                        <circle class="knob-track-bg" cx="32" cy="32" r="28" stroke-dasharray="132"
+                            stroke-dashoffset="44" />
+                        <circle class="knob-track-fill" cx="32" cy="32" r="28" stroke-dasharray="132"
+                            stroke-dashoffset="90" />
+                    </svg>
+                    <div class="knob-inner" style="transform: rotate(40.5deg)">
+                        <div class="knob-indicator"></div>
+                    </div>
+                </div>
+                <span class="knob-label">Gain</span>
+                <span class="knob-value">65</span>
+            </div>
+
+            <div class="knob-container">
+                <div class="knob" id="knob2" data-value="50">
+                    <div class="knob-outer"></div>
+                    <svg class="knob-track-svg" viewBox="0 0 64 64">
+                        <circle class="knob-track-bg" cx="32" cy="32" r="28" stroke-dasharray="132"
+                            stroke-dashoffset="44" />
+                        <circle class="knob-track-fill" cx="32" cy="32" r="28" stroke-dasharray="132"
+                            stroke-dashoffset="103" />
+                    </svg>
+                    <div class="knob-inner" style="transform: rotate(0deg)">
+                        <div class="knob-indicator"></div>
+                    </div>
+                </div>
+                <span class="knob-label">Pan</span>
+                <span class="knob-value">C</span>
+            </div>
+
+            <div class="knob-container">
+                <div class="knob" id="knob3" data-value="80">
+                    <div class="knob-outer"></div>
+                    <svg class="knob-track-svg" viewBox="0 0 64 64">
+                        <circle class="knob-track-bg" cx="32" cy="32" r="28" stroke-dasharray="132"
+                            stroke-dashoffset="44" />
+                        <circle class="knob-track-fill" cx="32" cy="32" r="28" stroke-dasharray="132"
+                            stroke-dashoffset="70" />
+                    </svg>
+                    <div class="knob-inner" style="transform: rotate(81deg)">
+                        <div class="knob-indicator"></div>
+                    </div>
+                </div>
+                <span class="knob-label">Width</span>
+                <span class="knob-value">80</span>
+            </div>
+        </div>
+
+        <!-- Faders -->
+        <div class="fader-container">
+            <span class="fader-label">Master</span>
+            <div class="fader-body">
+                <div class="fader-scale">
+                    <span>+12</span>
+                    <span>+6</span>
+                    <span>0</span>
+                    <span>-6</span>
+                    <span>-∞</span>
+                </div>
+                <div class="fader-channel">
+                    <div class="fader-track" id="faderL">
+                        <div class="fader-glow" style="height: 75%"></div>
+                        <div class="fader-fill" style="height: 75%"></div>
+                        <div class="fader-handle" style="bottom: calc(75% - 12px)"></div>
+                    </div>
+                    <span class="fader-channel-label">L</span>
+                </div>
+                <div class="fader-channel">
+                    <div class="fader-track" id="faderR">
+                        <div class="fader-glow" style="height: 75%"></div>
+                        <div class="fader-fill" style="height: 75%"></div>
+                        <div class="fader-handle" style="bottom: calc(75% - 12px)"></div>
+                    </div>
+                    <span class="fader-channel-label">R</span>
+                </div>
+            </div>
+            <span class="fader-value">+6.0 dB</span>
+        </div>
+
+        <!-- Spectrum Analyzer -->
+        <div class="spectrum-container">
+            <span class="spectrum-label">Spectrum</span>
+            <div class="spectrum-body">
+                <div class="spectrum-bars" id="spectrumBars"></div>
+            </div>
+        </div>
+
+        <!-- VU Meters -->
+        <div class="meter-container">
+            <span class="meter-label">Output</span>
+            <div class="meter-body">
+                <div class="meter-channel">
+                    <div class="meter-bars" id="meterL"></div>
+                    <span class="meter-channel-label">L</span>
+                </div>
+                <div class="meter-channel">
+                    <div class="meter-bars" id="meterR"></div>
+                    <span class="meter-channel-label">R</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Waveform -->
+    <div class="waveform-container">
+        <div class="waveform-panel">
+            <div class="waveform-header">
+                <span class="waveform-title">Waveform</span>
+                <span class="waveform-time" id="timeDisplay">00:00.000 / 03:24.512</span>
+            </div>
+            <div class="waveform-display" id="waveformDisplay">
+                <canvas class="waveform-canvas" id="waveformCanvas"></canvas>
+                <div class="waveform-loop" id="loopRegion" style="left: 30%; width: 25%; display: none;"></div>
+                <div class="waveform-playhead" id="playhead" style="left: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>
+            <strong>Drag knobs</strong> vertically. <strong>Drag faders</strong> to control level.<br>
+            <span class="kbd">Space</span> Play/Pause · <span class="kbd">L</span> Toggle Loop · <span
+                class="kbd">←</span><span class="kbd">→</span> Seek
+        </p>
+    </footer>
+
+    <script>
+        // ============ INIT ============
+        const segments = 14;
+        const spectrumBands = 24;
+
+        // Meters
+        ['meterL', 'meterR'].forEach(id => {
+            const container = document.getElementById(id);
+            for (let i = 0; i < segments; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'meter-bar';
+                container.appendChild(bar);
+            }
+        });
+
+        // Spectrum
+        const spectrumContainer = document.getElementById('spectrumBars');
+        for (let i = 0; i < spectrumBands; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'spectrum-bar';
+            bar.style.height = '4px';
+            spectrumContainer.appendChild(bar);
+        }
+
+        // Waveform Canvas
+        const canvas = document.getElementById('waveformCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawWaveform();
+        }
+
+        function drawWaveform() {
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+            ctx.clearRect(0, 0, w, h);
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, h);
+            gradient.addColorStop(0, 'rgba(0, 212, 255, 0.6)');
+            gradient.addColorStop(0.5, 'rgba(0, 136, 255, 0.4)');
+            gradient.addColorStop(1, 'rgba(0, 136, 255, 0.1)');
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.moveTo(0, h / 2);
+
+            const samples = 180;
+            for (let i = 0; i <= samples; i++) {
+                const x = (i / samples) * w;
+                const noise = Math.sin(i * 0.3) * Math.cos(i * 0.17) * Math.sin(i * 0.07 + 1);
+                const envelope = Math.sin((i / samples) * Math.PI) * 0.8 + 0.2;
+                const amplitude = noise * envelope * (h * 0.38);
+                ctx.lineTo(x, h / 2 - amplitude);
+            }
+
+            for (let i = samples; i >= 0; i--) {
+                const x = (i / samples) * w;
+                const noise = Math.sin(i * 0.3) * Math.cos(i * 0.17) * Math.sin(i * 0.07 + 1);
+                const envelope = Math.sin((i / samples) * Math.PI) * 0.8 + 0.2;
+                const amplitude = noise * envelope * (h * 0.38);
+                ctx.lineTo(x, h / 2 + amplitude);
+            }
+
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, h / 2);
+            ctx.lineTo(w, h / 2);
+            ctx.stroke();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // ============ STATE ============
+        let isPlaying = false;
+        let isLooping = false;
+        let playheadPosition = 0;
+        let peakL = 0, peakR = 0;
+        let animationId = null;
+
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const loopBtn = document.getElementById('loopBtn');
+        const transportPanel = document.getElementById('transportPanel');
+        const playhead = document.getElementById('playhead');
+        const loopRegion = document.getElementById('loopRegion');
+        const timeDisplay = document.getElementById('timeDisplay');
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 1000);
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+        }
+
+        function play() {
+            isPlaying = true;
+            playBtn.classList.add('active');
+            pauseBtn.classList.remove('active');
+            transportPanel.classList.add('playing');
+            animate();
+        }
+
+        function pause() {
+            isPlaying = false;
+            playBtn.classList.remove('active');
+            pauseBtn.classList.add('active');
+            transportPanel.classList.remove('playing');
+            if (animationId) cancelAnimationFrame(animationId);
+        }
+
+        function stop() {
+            isPlaying = false;
+            playheadPosition = 0;
+            playBtn.classList.remove('active');
+            pauseBtn.classList.remove('active');
+            transportPanel.classList.remove('playing');
+            if (animationId) cancelAnimationFrame(animationId);
+            playhead.style.left = '0%';
+            updateMeter('meterL', 0, 0);
+            updateMeter('meterR', 0, 0);
+            updateSpectrum(0);
+            peakL = peakR = 0;
+            timeDisplay.textContent = `${formatTime(0)} / 03:24.512`;
+        }
+
+        playBtn.addEventListener('click', play);
+        pauseBtn.addEventListener('click', pause);
+        stopBtn.addEventListener('click', stop);
+
+        loopBtn.addEventListener('click', () => {
+            isLooping = !isLooping;
+            loopBtn.classList.toggle('active', isLooping);
+            loopRegion.style.display = isLooping ? 'block' : 'none';
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                isPlaying ? pause() : play();
+            } else if (e.code === 'KeyL') {
+                loopBtn.click();
+            } else if (e.code === 'ArrowLeft') {
+                playheadPosition = Math.max(0, playheadPosition - 0.02);
+                playhead.style.left = `${playheadPosition * 100}%`;
+            } else if (e.code === 'ArrowRight') {
+                playheadPosition = Math.min(1, playheadPosition + 0.02);
+                playhead.style.left = `${playheadPosition * 100}%`;
+            }
+        });
+
+        // ============ ANIMATION ============
+        function animate() {
+            if (!isPlaying) return;
+
+            const duration = 204.512;
+            const loopStart = 0.30;
+            const loopEnd = 0.55;
+
+            playheadPosition += 0.00025;
+
+            if (isLooping && playheadPosition >= loopEnd) {
+                playheadPosition = loopStart;
+            } else if (playheadPosition >= 1) {
+                playheadPosition = 0;
+            }
+
+            playhead.style.left = `${playheadPosition * 100}%`;
+            timeDisplay.textContent = `${formatTime(playheadPosition * duration)} / ${formatTime(duration)}`;
+
+            // Meters
+            const faderValue = 75;
+            const base = (faderValue / 100) * 65;
+            const levelL = base + Math.random() * 35;
+            const levelR = base + Math.random() * 35;
+
+            if (levelL > peakL) peakL = levelL;
+            if (levelR > peakR) peakR = levelR;
+            peakL = Math.max(0, peakL - 0.6);
+            peakR = Math.max(0, peakR - 0.6);
+
+            updateMeter('meterL', levelL, peakL);
+            updateMeter('meterR', levelR, peakR);
+            updateSpectrum(base);
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function updateMeter(id, level, peak) {
+            const bars = document.querySelectorAll(`#${id} .meter-bar`);
+            bars.forEach((bar, i) => {
+                const threshold = ((i + 1) / segments) * 100;
+                bar.className = 'meter-bar';
+
+                if (level >= threshold) {
+                    if (i >= segments - 2) bar.classList.add('active-red');
+                    else if (i >= segments - 4) bar.classList.add('active-amber');
+                    else bar.classList.add('active-green');
+                }
+
+                if (peak >= threshold && peak < threshold + (100 / segments)) {
+                    bar.classList.add('peak');
+                }
+            });
+        }
+
+        function updateSpectrum(base) {
+            const bars = document.querySelectorAll('.spectrum-bar');
+            bars.forEach((bar, i) => {
+                // Simulate frequency response curve
+                const freqCurve = Math.sin((i / spectrumBands) * Math.PI) * 0.7 + 0.3;
+                const height = (base * freqCurve + Math.random() * 30) * 0.9;
+                bar.style.height = `${Math.max(4, height)}px`;
+                bar.classList.toggle('high', height > 60);
+            });
+        }
+
+        // ============ KNOB INTERACTION ============
+        document.querySelectorAll('.knob').forEach(knob => {
+            let isDragging = false;
+            let startY = 0;
+            let startValue = 0;
+
+            knob.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startY = e.clientY;
+                startValue = parseFloat(knob.dataset.value);
+                document.body.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const delta = (startY - e.clientY) * 0.5;
+                const newValue = Math.max(0, Math.min(100, startValue + delta));
+                knob.dataset.value = newValue;
+
+                const rotation = (newValue / 100) * 270 - 135;
+                knob.querySelector('.knob-inner').style.transform = `rotate(${rotation}deg)`;
+
+                const maxDash = 88;
+                const fillOffset = 132 - (newValue / 100) * maxDash;
+                knob.querySelector('.knob-track-fill').style.strokeDashoffset = fillOffset;
+
+                const valueDisplay = knob.parentElement.querySelector('.knob-value');
+                if (knob.id === 'knob2') {
+                    if (newValue < 45) valueDisplay.textContent = `L${Math.round((50 - newValue) * 2)}`;
+                    else if (newValue > 55) valueDisplay.textContent = `R${Math.round((newValue - 50) * 2)}`;
+                    else valueDisplay.textContent = 'C';
+                } else {
+                    valueDisplay.textContent = Math.round(newValue);
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                document.body.style.cursor = '';
+            });
+        });
+
+        // ============ FADER INTERACTION ============
+        document.querySelectorAll('.fader-track').forEach(track => {
+            let isDragging = false;
+
+            track.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                updateFaderFromEvent(track, e);
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                updateFaderFromEvent(track, e);
+            });
+
+            document.addEventListener('mouseup', () => isDragging = false);
+        });
+
+        function updateFaderFromEvent(track, e) {
+            const rect = track.getBoundingClientRect();
+            let percent = 1 - (e.clientY - rect.top) / rect.height;
+            percent = Math.max(0, Math.min(1, percent));
+
+            const fill = track.querySelector('.fader-fill');
+            const glow = track.querySelector('.fader-glow');
+            const handle = track.querySelector('.fader-handle');
+
+            fill.style.height = `${percent * 100}%`;
+            glow.style.height = `${percent * 100}%`;
+            handle.style.bottom = `calc(${percent * 100}% - 12px)`;
+
+            const dB = percent === 0 ? '-∞' : ((percent * 24) - 12).toFixed(1);
+            document.querySelector('.fader-value').textContent = `${dB} dB`;
+        }
+
+        // ============ WAVEFORM CLICK ============
+        document.getElementById('waveformDisplay').addEventListener('click', (e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            playheadPosition = (e.clientX - rect.left) / rect.width;
+            playhead.style.left = `${playheadPosition * 100}%`;
+            timeDisplay.textContent = `${formatTime(playheadPosition * 204.512)} / ${formatTime(204.512)}`;
+        });
+
+        // ============ THEME TOGGLE ============
+        const themeToggle = document.getElementById('themeToggle');
+
+        // Check for saved theme preference or default to dark
+        const savedTheme = localStorage.getItem('harmonix-theme') || 'dark';
+        if (savedTheme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? null : 'light';
+
+            if (newTheme) {
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('harmonix-theme', 'light');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('harmonix-theme', 'dark');
+            }
+        }
+
+        themeToggle.addEventListener('click', toggleTheme);
+
+        // Add T key for theme toggle
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey) {
+                toggleTheme();
+            }
+        });
+    </script>
+
+</body>
+
+</html>

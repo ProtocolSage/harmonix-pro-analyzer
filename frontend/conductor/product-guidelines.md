@@ -1,7 +1,7 @@
 # Product Guidelines
 
 ## Visual Identity
-- **Theme:** "Luxurious Precision" (Dark Mode).
+- **Theme:** "Luxurious Precision" (Optimized for Dark Mode, with High-Contrast Light Mode).
 - **Aesthetic:** Elegant, expensive, and hyper-polished. Think high-end analog mastering gear meets futuristic precision instruments. It should feel like a piece of crafted hardware, not just a software interface.
 - **Color Palette:**
   - **Backgrounds:** Deep, rich "Obsidian" and "Midnight Blue" tones (avoiding flat/neutral greys). Use subtle radial gradients to create depth and warmth.

@@ -1,85 +1,107 @@
 /**
  * Inspector - Right panel (380px)
- * Phase 0-1: Tabbed panel with Settings/Results placeholders
+ * Phase 2: Tabbed panel with Settings/Results slots (controlled/uncontrolled)
  */
 
-import type { InspectorProps } from '../../types/layout';
+import { useState } from 'react';
+import type { InspectorProps, InspectorTab } from '../../types/layout';
 
-export function Inspector({ activeTab = 'settings', onTabChange }: InspectorProps) {
+export function Inspector({
+  activeTab: controlledTab,
+  onTabChange,
+  settingsSlot,
+  resultsSlot
+}: InspectorProps) {
+  // Internal state for uncontrolled mode
+  const [internalTab, setInternalTab] = useState<InspectorTab>('settings');
+
+  // Use controlled tab if provided, otherwise internal state
+  const activeTab = controlledTab ?? internalTab;
+  const handleTabChange = (tab: InspectorTab) => {
+    if (onTabChange) {
+      onTabChange(tab);
+    } else {
+      setInternalTab(tab);
+    }
+  };
+
   return (
     <div className="shell-inspector">
-      {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {activeTab === 'settings' ? (
-          <SettingsPanel />
-        ) : (
-          <ResultsPanel />
-        )}
+      <div className="hp-inspector-header">
+        <h3>{activeTab === 'settings' ? 'Analysis Settings' : 'Results'}</h3>
+      </div>
+      <div className="hp-inspector-body">
+        {activeTab === 'settings' ? (settingsSlot ?? <SettingsPanel />) : (resultsSlot ?? <ResultsPanel />)}
       </div>
     </div>
   );
 }
 
 function SettingsPanel() {
+  const [toggles, setToggles] = useState({
+    keyDetection: true,
+    bpmExtraction: true,
+    segmentAnalysis: false,
+    mlClassification: true,
+  });
+
+  const toggleSetting = (key: keyof typeof toggles) => {
+    setToggles((current) => ({ ...current, [key]: !current[key] }));
+  };
+
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-text-1 mb-4">Analysis Settings</h3>
-
-      {/* Algorithm Selector */}
-      <div>
-        <label className="block text-sm font-medium text-text-2 mb-2">
-          Algorithm:
-        </label>
-        <select className="w-full bg-bg-3 border border-border rounded-control px-3 py-2 text-text-1 focus:outline-none focus:ring-2 focus:ring-accent-brand">
-          <option>Essentia</option>
-          <option>LibROSA</option>
-          <option>Custom</option>
+    <div className="hp-inspector-stack">
+      <div className="hp-field">
+        <label className="hp-label" htmlFor="hp-algorithm">Algorithm</label>
+        <select id="hp-algorithm" defaultValue="essentia" className="hp-select">
+          <option value="essentia">Essentia</option>
+          <option value="librosa">Librosa</option>
         </select>
       </div>
 
-      {/* Window Size */}
-      <div>
-        <label className="block text-sm font-medium text-text-2 mb-2">
-          Window Size:
-        </label>
-        <select className="w-full bg-bg-3 border border-border rounded-control px-3 py-2 text-text-1 focus:outline-none focus:ring-2 focus:ring-accent-brand">
-          <option>1024</option>
-          <option selected>2048</option>
-          <option>4096</option>
+      <div className="hp-field">
+        <label className="hp-label" htmlFor="hp-window">Window Size</label>
+        <select id="hp-window" defaultValue="2048" className="hp-select">
+          <option value="2048">2048</option>
+          <option value="4096">4096</option>
         </select>
       </div>
 
-      {/* Hop Size */}
-      <div>
-        <label className="block text-sm font-medium text-text-2 mb-2">
-          Hop Size:
-        </label>
-        <select className="w-full bg-bg-3 border border-border rounded-control px-3 py-2 text-text-1 focus:outline-none focus:ring-2 focus:ring-accent-brand">
-          <option>256</option>
-          <option selected>512</option>
-          <option>1024</option>
+      <div className="hp-field">
+        <label className="hp-label" htmlFor="hp-hop">Hop Size</label>
+        <select id="hp-hop" defaultValue="512" className="hp-select">
+          <option value="512">512</option>
+          <option value="1024">1024</option>
         </select>
       </div>
 
-      {/* Checkboxes */}
-      <div className="space-y-3 pt-4 border-t border-border">
-        <label className="flex items-center gap-3 cursor-pointer group">
-          <div className="w-5 h-5 bg-accent-brand rounded flex items-center justify-center">
-            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
+      <div className="hp-toggle-list">
+        {[
+          { key: 'keyDetection', label: 'Key Detection' },
+          { key: 'bpmExtraction', label: 'BPM Extraction' },
+          { key: 'segmentAnalysis', label: 'Segment Analysis' },
+          { key: 'mlClassification', label: 'ML Classification' },
+        ].map((item) => (
+          <div key={item.key} className="hp-toggle-row">
+            <span className="hp-toggle-label">{item.label}</span>
+            <button
+              type="button"
+              className={`hp-toggle ${toggles[item.key as keyof typeof toggles] ? 'is-on' : ''}`}
+              aria-pressed={toggles[item.key as keyof typeof toggles]}
+              onClick={() => toggleSetting(item.key as keyof typeof toggles)}
+            >
+              <span className="hp-toggle-knob" />
+            </button>
           </div>
-          <span className="text-sm text-text-1 group-hover:text-text-1">Key Detection</span>
-        </label>
+        ))}
+      </div>
 
-        <label className="flex items-center gap-3 cursor-pointer group">
-          <div className="w-5 h-5 bg-accent-brand rounded flex items-center justify-center">
-            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <span className="text-sm text-text-1 group-hover:text-text-1">BPM Extraction</span>
-        </label>
+      <div className="hp-status-card">
+        <div className="hp-status-title">
+          <span className="hp-status-dot" />
+          Engine Ready
+        </div>
+        <div className="hp-status-subtitle">ML Models: 4/4 loaded</div>
       </div>
     </div>
   );
@@ -87,57 +109,37 @@ function SettingsPanel() {
 
 function ResultsPanel() {
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-text-1 mb-4">Results</h3>
-
-      {/* Tempo */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-text-2">Tempo:</span>
-          <span className="text-base font-semibold text-text-1">120.5 BPM</span>
+    <div className="hp-inspector-stack">
+      <div className="hp-metric-card">
+        <div className="hp-metric-label">Tempo</div>
+        <div className="hp-metric-value hp-metric-value--small" style={{ ['--metric-color' as string]: '#0D9488' }}>
+          120.5<span>BPM</span>
         </div>
-        <div className="h-8 flex items-center gap-0.5">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex-1 bg-accent-tempo rounded-sm"
-              style={{ height: `${Math.random() * 60 + 40}%` }}
-            />
-          ))}
+        <div className="hp-metric-sub">94% confidence</div>
+        <div className="hp-progress hp-progress--wide">
+          <div className="hp-progress-fill" style={{ width: '94%', background: '#0D9488' }} />
         </div>
       </div>
 
-      {/* Key */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-text-2">Key:</span>
-          <span className="text-base font-semibold text-text-1">C Major</span>
+      <div className="hp-metric-card">
+        <div className="hp-metric-label">Key</div>
+        <div className="hp-metric-value hp-metric-value--small" style={{ ['--metric-color' as string]: '#F59E0B' }}>
+          C<span>Major</span>
         </div>
-        <div className="h-8 flex items-center gap-0.5">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex-1 bg-accent-dynamics rounded-sm"
-              style={{ height: `${Math.random() * 60 + 40}%` }}
-            />
-          ))}
+        <div className="hp-metric-sub">87% confidence</div>
+        <div className="hp-progress hp-progress--wide">
+          <div className="hp-progress-fill" style={{ width: '87%', background: '#F59E0B' }} />
         </div>
       </div>
 
-      {/* Loudness */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-text-2">Loudness:</span>
-          <span className="text-base font-semibold text-text-1">-14.3 LUFS</span>
+      <div className="hp-metric-card">
+        <div className="hp-metric-label">Loudness</div>
+        <div className="hp-metric-value hp-metric-value--small" style={{ ['--metric-color' as string]: '#0891B2' }}>
+          -14.3<span>LUFS</span>
         </div>
-        <div className="h-8 flex items-center gap-0.5">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex-1 bg-accent-mfcc rounded-sm"
-              style={{ height: `${Math.random() * 60 + 40}%` }}
-            />
-          ))}
+        <div className="hp-metric-sub">Integrated loudness</div>
+        <div className="hp-progress hp-progress--wide">
+          <div className="hp-progress-fill" style={{ width: '68%', background: '#0891B2' }} />
         </div>
       </div>
     </div>

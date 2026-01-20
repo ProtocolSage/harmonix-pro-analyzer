@@ -10,12 +10,15 @@
  */
 
 import type { MelodyAnalysis } from '../types/audio';
+import type Essentia from 'essentia.js/dist/essentia.js-core.es.js';
 
 export class MelodyAnalysisEngine {
   private sampleRate: number;
+  private essentia: Essentia | null = null;
 
-  constructor(sampleRate: number = 44100) {
+  constructor(sampleRate: number = 44100, essentia?: any) {
     this.sampleRate = sampleRate;
+    this.essentia = essentia || null;
   }
 
   /**
@@ -64,6 +67,33 @@ export class MelodyAnalysisEngine {
     pitchTrack: number[];
     pitchConfidence: number[];
   }> {
+    if (this.essentia) {
+      const frameSize = 2048;
+      const hopSize = 512;
+      
+      // Limit to 30s segment for performance in main thread
+      const maxSamples = this.sampleRate * 30;
+      const startIdx = Math.max(0, Math.floor((channelData.length - maxSamples) / 2));
+      const segment = channelData.slice(startIdx, startIdx + maxSamples);
+      
+      const inputVector = this.essentia.arrayToVector(segment);
+      const result = this.essentia.PitchMelodia(inputVector, {
+        sampleRate: this.sampleRate,
+        frameSize: frameSize,
+        hopSize: hopSize,
+        guessUnvoiced: true
+      });
+
+      const pitchTrack = Array.from(this.essentia.vectorToArray(result.pitch));
+      const pitchConfidence = Array.from(this.essentia.vectorToArray(result.pitchConfidence));
+
+      inputVector.delete();
+      result.pitch.delete();
+      result.pitchConfidence.delete();
+
+      return { pitchTrack, pitchConfidence };
+    }
+
     const frameSize = 2048;
     const hopSize = 512;
     const minFreq = 60; // C2
