@@ -7,6 +7,15 @@ import { AudioAnalysisResult } from '../types/audio';
  * These files are self-contained interactive 3D visualizations.
  */
 
+// Placeholder for inlined libraries (in a real build system these would be injected)
+// For this workstation, we'll fetch them or read them from node_modules if possible.
+const LIBS = {
+  three: 'https://unpkg.com/three@0.160.0/build/three.module.js',
+  addons: 'https://unpkg.com/three@0.160.0/examples/jsm/',
+  gsap: 'https://unpkg.com/gsap@3.12.5/index.js',
+  d3: 'https://cdn.jsdelivr.net/npm/d3@7/+esm'
+};
+
 export const CinematicExportEngine = {
   /**
    * Reduces the resolution of the spectrogram for efficient 3D rendering.
@@ -54,6 +63,16 @@ export const CinematicExportEngine = {
     const MEL_BINS = 96; // Assuming standard mel count from our engine
     const timeSteps = data.melSpectrogram ? Math.floor(data.melSpectrogram.length / MEL_BINS) : 0;
     
+    const key = data.key?.key || 'C';
+    const genre = data.genre?.genre || 'Unknown';
+    
+    // Map Key to Hue (Circle of Fifths based)
+    const keyHues: Record<string, number> = {
+      'C': 0, 'G': 0.1, 'D': 0.2, 'A': 0.3, 'E': 0.4, 'B': 0.5,
+      'F#': 0.6, 'Gb': 0.6, 'Db': 0.7, 'C#': 0.7, 'Ab': 0.8, 'Eb': 0.9, 'Bb': 0.95, 'F': 0.05
+    };
+    const primaryHue = keyHues[key] || 0.6; // Default to Blue-ish
+    
     const optimizedData = {
       metadata: {
         filename: filename,
@@ -61,8 +80,13 @@ export const CinematicExportEngine = {
         key: data.key?.key ? `${data.key.key} ${data.key.scale}` : 'Unknown',
         duration: data.duration,
         energy: data.spectral?.energy?.mean || 0.5,
-        genre: data.genre?.genre || 'Unknown',
-        genrePredictions: data.genre?.predictions || []
+        genre: genre,
+        genrePredictions: data.genre?.predictions || [],
+        colors: {
+          primary: primaryHue,
+          secondary: (primaryHue + 0.3) % 1.0,
+          accent: (primaryHue + 0.5) % 1.0
+        }
       },
       spectral: {
         spectrogram: data.melSpectrogram 
@@ -220,61 +244,94 @@ export const CinematicExportEngine = {
         scene.add(dnaGroup);
 
         // --- 1. SPECTRAL TERRAIN MESH ---
+        const terrainShader = {
+            vertex: \`
+                varying float vHeight;
+                varying vec3 vColor;
+                attribute vec3 color;
+                void main() {
+                    vHeight = position.z;
+                    vColor = color;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            \`,
+            fragment: \`
+                varying float vHeight;
+                varying vec3 vColor;
+                void main() {
+                    float glow = vHeight * 0.1;
+                    vec3 finalColor = vColor + vec3(0.0, glow, glow * 0.5);
+                    gl_FragColor = vec4(finalColor, 1.0);
+                }
+            \`
+        };
+
         function createTerrain() {
             const { time, freq } = data.spectral.dimensions;
             const values = data.spectral.spectrogram;
             
-            // Create a plane geometry: Width = Time, Depth = Freq
             const geometry = new THREE.PlaneGeometry(60, 30, time - 1, freq - 1);
-            
-            // Displace vertices based on spectrogram value
             const positionAttribute = geometry.attributes.position;
             const colors = [];
             const colorObj = new THREE.Color();
 
             for (let i = 0; i < positionAttribute.count; i++) {
-                // Map linear index to 2D grid
-                const x = i % time; // time step
-                const y = Math.floor(i / time); // freq bin
-                
-                // Get spectral value (normalized 0-1 usually, but logarithmic)
-                // data.spectral.spectrogram is flattened [time * freq]
-                const specIndex = x * freq + y; // Incorrect indexing for standard PlaneGeo? 
-                // PlaneGeo order is row-by-row.
-                
+                const x = i % time;
+                const y = Math.floor(i / time);
+                const specIndex = x * freq + y;
                 const value = values[specIndex] || 0;
                 
-                // Set Z height (which is Y in world space after rotation)
-                positionAttribute.setZ(i, value * 10); // Scale height
-
-                // Color map: Low (Purple) -> High (Cyan/White)
-                colorObj.setHSL(0.6 + (value * 0.4), 1.0, value * 0.8);
+                positionAttribute.setZ(i, value * 10);
+                colorObj.setHSL(data.metadata.colors.primary + (value * 0.2), 1.0, 0.2 + value * 0.6);
                 colors.push(colorObj.r, colorObj.g, colorObj.b);
             }
 
             geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
             geometry.computeVertexNormals();
 
-            const material = new THREE.MeshStandardMaterial({ 
-                vertexColors: true, 
-                wireframe: true, // Tech aesthetic
-                roughness: 0.2,
-                metalness: 0.8
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 }
+                },
+                vertexShader: terrainShader.vertex,
+                fragmentShader: terrainShader.fragment,
+                wireframe: true,
+                transparent: true
             });
 
             const mesh = new THREE.Mesh(geometry, material);
-            mesh.rotation.x = -Math.PI / 2; // Lay flat
+            mesh.rotation.x = -Math.PI / 2;
             terrainGroup.add(mesh);
 
-            // Add "Floor" reflection
             const grid = new THREE.GridHelper(100, 50, 0x1e293b, 0x0f172a);
             grid.position.y = -5;
             terrainGroup.add(grid);
         }
 
         // --- 2. AUDIO GALAXY (Refined) ---
+        const galaxyShader = {
+            vertex: \`
+                varying vec3 vColor;
+                attribute vec3 color;
+                void main() {
+                    vColor = color;
+                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                    gl_PointSize = 4.0 * (300.0 / -mvPosition.z);
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            \`,
+            fragment: \`
+                varying vec3 vColor;
+                void main() {
+                    float dist = distance(gl_PointCoord, vec2(0.5));
+                    if (dist > 0.5) discard;
+                    float glow = pow(1.0 - dist * 2.0, 3.0);
+                    gl_FragColor = vec4(vColor, glow);
+                }
+            \`
+        };
+
         function createGalaxy() {
-            // Using same data but as particles
             const count = data.spectral.spectrogram.length;
             const geometry = new THREE.BufferGeometry();
             const positions = [];
@@ -286,19 +343,17 @@ export const CinematicExportEngine = {
             for (let t = 0; t < time; t++) {
                 for (let f = 0; f < freq; f++) {
                     const val = data.spectral.spectrogram[t * freq + f];
-                    if (val < 0.1) continue; // Skip silence
+                    if (val < 0.1) continue;
 
-                    // Spiral coordinate system
-                    const angle = (t / time) * Math.PI * 8; // 4 full turns
-                    const radius = 10 + (f / freq) * 20;    // Freq maps to width
+                    const angle = (t / time) * Math.PI * 8;
+                    const radius = 10 + (f / freq) * 20;
                     
                     const x = Math.cos(angle) * radius;
                     const z = Math.sin(angle) * radius;
-                    const y = (Math.random() - 0.5) * 5 * val; // Scatter height by intensity
+                    const y = (Math.random() - 0.5) * 5 * val;
 
                     positions.push(x, y, z);
-
-                    colorObj.setHSL(0.5 + (f/freq) * 0.5, 1.0, val);
+                    colorObj.setHSL(data.metadata.colors.secondary + (f/freq) * 0.2, 1.0, val);
                     colors.push(colorObj.r, colorObj.g, colorObj.b);
                 }
             }
@@ -306,17 +361,17 @@ export const CinematicExportEngine = {
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
             geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
-            const material = new THREE.PointsMaterial({ 
-                size: 0.15, 
-                vertexColors: true, 
+            const material = new THREE.ShaderMaterial({
+                vertexShader: galaxyShader.vertex,
+                fragmentShader: galaxyShader.fragment,
                 blending: THREE.AdditiveBlending,
-                transparent: true,
-                opacity: 0.8
+                depthTest: false,
+                transparent: true
             });
 
             const points = new THREE.Points(geometry, material);
             galaxyGroup.add(points);
-            galaxyGroup.visible = false; // Start hidden
+            galaxyGroup.visible = false;
         }
 
         // --- 3. HARMONIC CONSTELLATION (D3 + Three.js) ---
@@ -355,9 +410,10 @@ export const CinematicExportEngine = {
 
             // 3. Render Stars (Points)
             const starGeo = new THREE.SphereGeometry(0.5, 16, 16);
+            const colorObj = new THREE.Color().setHSL(data.metadata.colors.accent, 1.0, 0.5);
             const starMat = new THREE.MeshStandardMaterial({ 
-                color: 0xffd700, 
-                emissive: 0xffd700,
+                color: colorObj, 
+                emissive: colorObj,
                 emissiveIntensity: 2
             });
 
@@ -413,7 +469,7 @@ export const CinematicExportEngine = {
 
             predictions.forEach((p, idx) => {
                 const points = [];
-                const colorObj = new THREE.Color().setHSL(idx / predictions.length, 0.8, 0.5);
+                const colorObj = new THREE.Color().setHSL((data.metadata.colors.primary + idx * 0.1) % 1.0, 0.8, 0.5);
                 
                 // Offset angle for each strand
                 const startAngle = (idx / predictions.length) * Math.PI * 2;
@@ -474,10 +530,31 @@ export const CinematicExportEngine = {
         scene.add(pointLight);
 
         // Hide Loader
-        setTimeout(() => {
-            document.getElementById('loader').style.opacity = 0;
-            setTimeout(() => document.getElementById('loader').remove(), 1000);
-        }, 1500);
+        function startIntro() {
+            const tl = gsap.timeline();
+            
+            // 1. Initial State
+            camera.position.set(0, 500, 1000);
+            camera.lookAt(0, 0, 0);
+            galaxyGroup.visible = true;
+            galaxyGroup.scale.setScalar(0.1);
+            
+            // 2. Hide Loader
+            tl.to("#loader", { opacity: 0, duration: 1, onComplete: () => document.getElementById('loader').remove() });
+            
+            // 3. Zoom In
+            tl.to(camera.position, { z: 40, y: 20, duration: 3, ease: "expo.out" }, "-=0.5");
+            tl.to(galaxyGroup.scale, { x: 1, y: 1, z: 1, duration: 3, ease: "power4.out" }, "-=3");
+            
+            // 4. Reveal UI
+            tl.from(".header", { x: -100, opacity: 0, duration: 1, ease: "power2.out" }, "-=1");
+            tl.from(".controls", { y: 100, opacity: 0, duration: 1, ease: "power2.out" }, "-=1");
+            
+            // 5. Initial View Set
+            tl.add(() => switchView('terrain'), "-=0.5");
+        }
+
+        setTimeout(startIntro, 1000);
 
         // --- ANIMATION LOOP ---
         function animate() {
