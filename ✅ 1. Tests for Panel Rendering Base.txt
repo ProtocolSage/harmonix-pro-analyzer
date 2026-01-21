@@ -1,0 +1,93 @@
+✅ 1. Tests for Panel Rendering Based on analysisMode
+📌 Goal:
+
+Verify that the correct analysis panel renders based on the selected mode (overview, segments, ml, etc.)
+
+🧪 Test Cases (React Testing Library + Jest):
+it('renders tempo/key/loudness panel in overview mode', () => {
+  render(<StudioAnalysisResults analysisMode="overview" analysisData={mockDataWithTempo} />);
+  expect(screen.getByText('120.0')).toBeInTheDocument(); // tempo
+  expect(screen.getByText('C')).toBeInTheDocument(); // key
+  expect(screen.getByText('-10.2')).toBeInTheDocument(); // loudness
+});
+
+it('renders fallback content when analysisData is missing', () => {
+  render(<StudioAnalysisResults analysisMode="overview" analysisData={{}} />);
+  expect(screen.getAllByText('N/A').length).toBeGreaterThan(1);
+});
+
+✅ 2. Streaming Toggle Propagation Tests
+📌 Goal:
+
+Verify that toggles (e.g. enableTempo, enableML) are passed into the streaming engine and honored.
+
+🧪 In RealEssentiaAudioEngine.test.ts:
+it('skips ML analysis when disabled via featureToggles', async () => {
+  const toggles = { enableML: false };
+  const engine = new RealEssentiaAudioEngine({ featureToggles: toggles });
+
+  const result = await engine.analyze(audioBuffer);
+
+  expect(result.ml).toBeUndefined();
+  expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('ML analysis disabled'));
+});
+
+
+You can use spies/mocks for console.warn or inject your own logger if you're already routing logs via a central service.
+
+✅ 3. BottomDock Click Wiring
+📌 Goal:
+
+Ensure that fallback controls (e.g., repeat, seek) trigger the transport handler as expected.
+
+🧪 In BottomDock.test.tsx:
+it('calls onRepeat when repeat button is clicked', () => {
+  const mockTransport = { repeat: jest.fn() };
+  render(<BottomDock transportHandler={mockTransport} />);
+  fireEvent.click(screen.getByLabelText('Repeat'));
+  expect(mockTransport.repeat).toHaveBeenCalled();
+});
+
+✅ 4. Deeper UI Handling (Optional Enhancements)
+📌 What to Add:
+
+Hide tabs entirely if all relevant data is missing
+
+Tooltip explanation for dimmed metrics
+
+🧩 Patch Example:
+
+In StudioAnalysisResults.tsx:
+
+{!analysisData.tempo && (
+  <Tooltip content="Tempo analysis not available for this file">
+    <div className="daw-hero-value daw-text-muted">N/A</div>
+  </Tooltip>
+)}
+
+
+In Studio.tsx tab logic:
+
+const hasML = !!analysisData.ml?.segments?.length;
+const hasSegments = !!analysisData.segments?.length;
+
+<TabList>
+  <Tab disabled={!hasSegments}>Segments</Tab>
+  <Tab disabled={!hasML}>Machine Learning</Tab>
+</TabList>
+
+✅ 5. Add These to Your Prompt (Optimized for Coding Agent)
+
+Here’s the revised prompt with surgical precision:
+
+Finalize UI & backend sync:
+- Ensure sidebar mode switching updates the correct panel via mode→view mapping; conditionally render panel components based on selected analysisMode.
+- Integrate featureToggles into real-time engine analysis (tempo, key, segments, ML); omit unsupported ones with graceful fallbacks (undefined).
+- Clean stale `.vite/` artifacts from dist; regenerate fresh build assets and validate hashes.
+- Re-enable real-time meters in compact transport view.
+- Add tests: mode→panel render, toggle propagation, BottomDock wiring.
+- Improve UI resilience: dim or hide metrics when data is missing; add tooltips for unavailable data.
+- Typecheck must pass (`npm run typecheck`).
+
+
+Say the word and I’ll generate exact test files with stubs and mock data to drop in __tests__/. Ready to ship the whole damn QA pipeline if you are.0
