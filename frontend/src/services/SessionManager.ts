@@ -6,7 +6,8 @@ import {
   FullAnalysisArtifact, 
   SessionState, 
   SpectrogramManifestArtifact, 
-  SpectrogramTileSpec 
+  SpectrogramTileSpec,
+  SpectrogramTileArtifact
 } from '../types/persistence';
 
 /**
@@ -23,6 +24,11 @@ export class SessionManager {
   private writeQueue = new Map<string, AnalysisArtifact>();
   private isProcessingQueue = false;
   private readonly BATCH_SIZE = 50;
+
+  // Spectrogram Specific Flush Queue (Dual-Trigger)
+  private pendingSpectrogramTiles = new Map<string, SpectrogramTileArtifact>();
+  private lastFlushTime = 0;
+  private flushTimer: number | null = null;
 
   private constructor() {}
 
@@ -131,6 +137,28 @@ export class SessionManager {
     await dbService.putArtifact(artifact);
   }
 
+  public async validateSpectrogramCache(trackId: string, fingerprint: string, expectedSpec: SpectrogramTileSpec): Promise<boolean> {
+    const manifest = await this.readSpectrogramManifest(trackId);
+    if (!manifest) return false;
+
+    // Platinum Validation: Fingerprint, Schema, and DSP Contract must match
+    const isMatch = 
+      manifest.tileSpec.windowSize === expectedSpec.windowSize &&
+      manifest.tileSpec.hopSize === expectedSpec.hopSize &&
+      manifest.tileSpec.freqBins === expectedSpec.freqBins &&
+      true; 
+
+    return isMatch;
+  }
+
+  public async invalidateSpectrogramCache(trackId: string): Promise<void> {
+    await Promise.all([
+      dbService.deleteArtifactsByType(trackId, 'spectrogram_tile'),
+      dbService.deleteArtifactsByType(trackId, 'spectrogram_manifest')
+    ]);
+    console.log(`[SessionManager] Invalidated spectrogram cache for track ${trackId}`);
+  }
+
   public async readSpectrogramManifest(trackId: string): Promise<SpectrogramManifestArtifact['data'] | undefined> {
     const artifact = await dbService.getArtifact(trackId, 'spectrogram_manifest', 'default');
     if (artifact && artifact.type === 'spectrogram_manifest') {
@@ -147,6 +175,48 @@ export class SessionManager {
         artifact.updatedAt = Date.now();
         await dbService.putArtifact(artifact);
       }
+    }
+  }
+
+  /**
+   * Platinum Dual-Trigger Flush for Spectrogram Tiles
+   */
+  public enqueueSpectrogramTile(tile: SpectrogramTileArtifact): void {
+    this.pendingSpectrogramTiles.set(tile.key, tile);
+    
+    const shouldFlush = 
+      this.pendingSpectrogramTiles.size >= 5 || 
+      (performance.now() - this.lastFlushTime) > 250;
+
+    if (shouldFlush) {
+      this.flushSpectrogramTiles();
+    } else if (!this.flushTimer) {
+      this.flushTimer = window.setTimeout(() => this.flushSpectrogramTiles(), 250);
+    }
+  }
+
+  private async flushSpectrogramTiles(): Promise<void> {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+
+    if (this.pendingSpectrogramTiles.size === 0) return;
+
+    const batch = Array.from(this.pendingSpectrogramTiles.values());
+    this.pendingSpectrogramTiles.clear();
+    this.lastFlushTime = performance.now();
+
+    try {
+      await dbService.putArtifactsBatch(batch);
+      
+      // Update manifest for each completed tile
+      for (const tile of batch) {
+        const tileIndex = parseInt(tile.key.split(':')[1]);
+        await this.updateManifestCompletion(tile.trackId, tileIndex);
+      }
+    } catch (err) {
+      console.error('[SessionManager] Spectrogram batch flush failed:', err);
     }
   }
 

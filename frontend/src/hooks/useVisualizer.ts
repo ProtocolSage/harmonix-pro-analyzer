@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import { VisualizerEngine } from '../engines/VisualizerEngine';
 import { WaveformRenderer } from '../engines/renderers/WaveformRenderer';
 import { SpectrogramRenderer } from '../engines/renderers/SpectrogramRenderer';
+import { TiledSpectrogramRenderer } from '../engines/renderers/TiledSpectrogramRenderer';
 import { VUMeterRenderer } from '../engines/renderers/VUMeterRenderer';
 import { VisualizerConfig, VisualizationPayload } from '../types/visualizer';
 
@@ -19,7 +20,20 @@ export function useVisualizer(config?: Partial<VisualizerConfig> & { rendererId?
     const rendererId = config?.rendererId || 'waveform';
     
     // Engine.init handles string[] by creating CompositeRenderer in worker
-    engine.init(canvasRef.current, Array.isArray(rendererId) ? rendererId : new WaveformRenderer());
+    let initialRenderer: any;
+    if (Array.isArray(rendererId)) {
+      initialRenderer = rendererId;
+    } else {
+      switch (rendererId) {
+        case 'waveform': initialRenderer = new WaveformRenderer(); break;
+        case 'spectrogram': initialRenderer = new SpectrogramRenderer(); break;
+        case 'tiled-spectrogram': initialRenderer = new TiledSpectrogramRenderer(); break;
+        case 'vu': initialRenderer = new VUMeterRenderer(); break;
+        default: initialRenderer = new WaveformRenderer();
+      }
+    }
+
+    engine.init(canvasRef.current, initialRenderer);
 
     return () => {
       engine.destroy();

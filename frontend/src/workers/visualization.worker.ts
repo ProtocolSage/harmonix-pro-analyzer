@@ -2,6 +2,9 @@ import { VisualizerConfig, VisualizationPayload, IRenderer } from '../types/visu
 import { WaveformRenderer } from '../engines/renderers/WaveformRenderer';
 import { SpectrogramRenderer } from '../engines/renderers/SpectrogramRenderer';
 import { VUMeterRenderer } from '../engines/renderers/VUMeterRenderer';
+import { SpectrumRenderer } from '../engines/renderers/SpectrumRenderer';
+import { CorrelationRenderer } from '../engines/renderers/CorrelationRenderer';
+import { TiledSpectrogramRenderer } from '../engines/renderers/TiledSpectrogramRenderer';
 import { CompositeRenderer } from '../engines/renderers/CompositeRenderer';
 
 let canvas: OffscreenCanvas | null = null;
@@ -20,6 +23,9 @@ let currentPlaybackTime = 0;
 renderers.set('waveform', new WaveformRenderer());
 renderers.set('spectrogram', new SpectrogramRenderer());
 renderers.set('vu-meter', new VUMeterRenderer());
+renderers.set('spectrum', new SpectrumRenderer());
+renderers.set('correlation', new CorrelationRenderer());
+renderers.set('tiled-spectrogram', new TiledSpectrogramRenderer());
 
 self.onmessage = (e: MessageEvent) => {
   const { type, payload } = e.data;
@@ -118,6 +124,16 @@ function loop() {
 
   const bounds = { width: canvas.width, height: canvas.height };
   
+  // Handle Tile Ingestion if present in payload
+  if (latestData.spectrogramTile) {
+    const tiledRenderer = renderers.get('tiled-spectrogram') as TiledSpectrogramRenderer;
+    if (tiledRenderer) {
+      tiledRenderer.ingestTile(latestData.spectrogramTile);
+    }
+    // Remove from payload to avoid re-ingesting
+    latestData.spectrogramTile = undefined;
+  }
+
   // Create a copy of latest data but with synchronized timestamp
   const synchronizedData: VisualizationPayload = {
     ...latestData,
