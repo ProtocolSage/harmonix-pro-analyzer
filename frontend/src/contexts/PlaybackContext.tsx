@@ -1,5 +1,6 @@
-import { createContext, useContext, useReducer, ReactNode, useCallback, useMemo } from 'react';
+import { createContext, useContext, useReducer, ReactNode, useCallback, useMemo, useEffect } from 'react';
 import { AudioTransportEngine } from '../engines/AudioTransportEngine';
+import { MeteringEngine } from '../engines/MeteringEngine';
 import { getAudioContext } from '../utils/audioContext';
 
 // ============================================================================
@@ -153,6 +154,7 @@ interface PlaybackContextValue {
   state: PlaybackState;
   dispatch: React.Dispatch<PlaybackAction>;
   engine: AudioTransportEngine;
+  metering: MeteringEngine;
 
   // Convenience actions
   setAudioBuffer: (buffer: AudioBuffer) => void;
@@ -178,6 +180,23 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(playbackReducer, initialState);
   
   const engine = useMemo(() => new AudioTransportEngine(getAudioContext()), []);
+  const metering = useMemo(() => new MeteringEngine(getAudioContext()), []);
+
+  // Connect Metering Engine to Transport Output
+  useEffect(() => {
+    const transportOut = engine.getOutputNode();
+    const meterIn = metering.getInputNode();
+    
+    transportOut.connect(meterIn);
+    
+    return () => {
+      try {
+        transportOut.disconnect(meterIn);
+      } catch (e) {
+        // Ignore disconnection errors on unmount
+      }
+    };
+  }, [engine, metering]);
 
   // Convenience action creators (memoized to prevent re-renders)
   const setAudioBuffer = useCallback((buffer: AudioBuffer) => {
@@ -242,6 +261,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     state,
     dispatch,
     engine,
+    metering,
     setAudioBuffer,
     play,
     pause,

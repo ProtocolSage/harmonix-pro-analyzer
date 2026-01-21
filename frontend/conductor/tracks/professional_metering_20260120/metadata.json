@@ -1,0 +1,9 @@
+{
+  "id": "professional_metering_20260120",
+  "name": "Professional Metering Suite",
+  "description": "Implement industry-standard audio metering: Vectorscope, Phase Correlation, LUFS, and Spectrum Analyzer.",
+  "status": "todo",
+  "priority": "high",
+  "owner": "gemini",
+  "created_at": "2026-01-20"
+}

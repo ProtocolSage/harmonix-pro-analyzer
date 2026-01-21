@@ -13,6 +13,7 @@ export function BottomDock({
   onNext,
   onRepeat,
   transportSlot,
+  meterSlot,
 }: BottomDockProps) {
   const sections = [
     { id: 'intro', label: 'Intro', color: '#0D9488' },
@@ -110,16 +111,7 @@ export function BottomDock({
         </div>
 
         <div className="hp-bottom-meters">
-          {[
-            { label: 'L', value: '-2.5', color: '#10B981' },
-            { label: 'R', value: '-10.2', color: '#F59E0B' },
-            { label: 'LUFS', value: '-8.6', color: '#0D9488' },
-          ].map((meter) => (
-            <div key={meter.label} className="hp-meter">
-              <div className="hp-meter-value" style={{ color: meter.color }}>{meter.value}</div>
-              <div className="hp-meter-label">{meter.label}</div>
-            </div>
-          ))}
+          {meterSlot}
         </div>
       </div>
     </div>

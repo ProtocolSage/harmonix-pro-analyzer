@@ -1,0 +1,9 @@
+{
+  "id": "cinematic_export_20260120",
+  "name": "Cinematic Export & Data Art",
+  "description": "Implement the 'Mind-Blow' stack for interactive 3D audio visualizations and standalone cinematic HTML exports.",
+  "status": "todo",
+  "priority": "high",
+  "owner": "gemini",
+  "created_at": "2026-01-20"
+}

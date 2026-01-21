@@ -1,0 +1,9 @@
+{
+  "id": "session_persistence_20260120",
+  "name": "Session Persistence & Library",
+  "description": "Implement IndexedDB storage for analysis results, project session state, and a library sidebar view.",
+  "status": "todo",
+  "priority": "high",
+  "owner": "gemini",
+  "created_at": "2026-01-20"
+}

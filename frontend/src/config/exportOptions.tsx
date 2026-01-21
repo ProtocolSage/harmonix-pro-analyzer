@@ -1,8 +1,16 @@
-import { Database, FileText, Image } from 'lucide-react';
+import { Database, FileText, Image, Star } from 'lucide-react';
 import type { ExportOption } from '../types/export';
 import type { AudioAnalysisResult } from '../types/audio';
 
 export const getExportOptions = (analysisData: AudioAnalysisResult | null): ExportOption[] => [
+  {
+    type: 'cinematic',
+    format: 'html',
+    name: 'Cinematic 3D Experience',
+    description: 'Standalone interactive 3D workstation (Mind-Blow Stack)',
+    icon: <Star className="w-4 h-4 text-amber-400" />,
+    size: '~2MB'
+  },
   {
     type: 'analysis-data',
     format: 'json',

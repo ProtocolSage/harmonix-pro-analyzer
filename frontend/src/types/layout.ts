@@ -42,6 +42,7 @@ export interface BottomDockProps {
   onNext?: () => void;
   onRepeat?: () => void;
   transportSlot?: React.ReactNode;
+  meterSlot?: React.ReactNode;
 }
 
 export interface MainStageProps {

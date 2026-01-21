@@ -5,14 +5,16 @@ export type ExportFormat =
   | 'xml'
   | 'png'
   | 'svg'
-  | 'pdf';
+  | 'pdf'
+  | 'html';
 
 export type ExportType = 
   | 'analysis-data'
   | 'visualization'
   | 'summary-report'
   | 'detailed-report'
-  | 'raw-features';
+  | 'raw-features'
+  | 'cinematic';
 
 export interface ExportOption {
   type: ExportType;

@@ -33,13 +33,18 @@ import type { InspectorTab, AnalysisMode } from './types/layout';
 import { HealthCheck, type SystemHealth } from './utils/HealthCheck';
 import { PerformanceMonitor, PerformanceCategory } from './utils/PerformanceMonitor';
 import { ErrorHandler, handleFileError, handleAnalysisError } from './utils/ErrorHandler';
+import { dbService } from './services/DBService';
+import { HashUtils } from './utils/HashUtils';
 import { Settings } from 'lucide-react';
 
 // Context providers
 import { AnalysisProvider, useAnalysis } from './contexts/AnalysisContext';
+import { LibraryProvider } from './contexts/LibraryContext';
 import { ComparisonProvider, useComparison } from './contexts/ComparisonContext';
 import { UIProvider, useUI } from './contexts/UIContext';
 import { PlaybackProvider, usePlayback, useFormattedTime } from './contexts/PlaybackContext';
+import { LibraryPanel } from './components/library/LibraryPanel';
+import { MeterBridge } from './components/meters/MeterBridge';
 
 // Main App Content Component (inside Providers)
 function ProductionAppContent() {
@@ -58,6 +63,17 @@ function ProductionAppContent() {
   const streamingEngineRef = useRef<StreamingAnalysisEngine | null>(null);
 
   const notifications = useNotificationHelpers();
+
+  const handleLoadFromLibrary = useCallback((track: any) => {
+    // Hydrate analysis context with saved data
+    if (track.analysis.full) {
+      analysis.completeAnalysis(track.analysis.full);
+      notifications.success('Loaded from Library', `Loaded analysis for ${track.filename}`);
+      // Note: Audio buffer is not available, so playback will be disabled until file is re-provided
+      playback.reset();
+      ui.setAnalysisMode('analyze');
+    }
+  }, [analysis, notifications, playback, ui]);
 
   // Keep streaming engine config in sync with feature toggles
   useEffect(() => {
@@ -377,6 +393,39 @@ function ProductionAppContent() {
       comparison.dispatch({ type: 'SET_SOURCE_DATA', payload: { data: result, cacheVersion } });
       notifications.analysisComplete(selectedFile.name);
 
+      // Persist to Library
+      try {
+        const fingerprint = await HashUtils.computeFingerprint(selectedFile);
+        
+        // Extract normalized tags
+        const genreTags = result.genre?.genre ? [result.genre.genre] : [];
+        const moodTags = result.mood ? Object.entries(result.mood)
+          .filter(([_, data]) => data.confidence > 0.5)
+          .map(([mood]) => mood) : [];
+
+        await dbService.saveTrack({
+          id: fingerprint,
+          filename: selectedFile.name,
+          dateAdded: Date.now(),
+          duration: result.duration,
+          analysis: {
+            full: result,
+            spectral: {
+              bpm: result.tempo?.bpm,
+              key: result.key?.key && result.key?.scale ? `${result.key.key} ${result.key.scale}` : undefined,
+              energy: result.spectral?.energy?.mean
+            },
+            tags: {
+              genre: genreTags,
+              mood: moodTags
+            }
+          }
+        });
+        notifications.success('Saved to Library', 'Track analyzed and saved.');
+      } catch (dbErr) {
+        console.error('Persistence failed:', dbErr);
+      }
+
       // Record successful analysis
       PerformanceMonitor.recordInstantMetric(
         'analysis.success',
@@ -568,6 +617,12 @@ function ProductionAppContent() {
                     />
                   </div>
                 );
+              case 'library':
+                return (
+                  <div className="h-full">
+                    <LibraryPanel onLoadTrack={handleLoadFromLibrary} />
+                  </div>
+                );
               case 'analyze':
               default:
                 return (
@@ -634,6 +689,7 @@ function ProductionAppContent() {
         onPrevious={() => handleSeekRelative(-10)}
         onNext={() => handleSeekRelative(10)}
         onRepeat={handleRepeatToggle}
+        meterSlot={<MeterBridge />}
         transportSlot={
           analysis.state.selectedFile ? (
             <TransportControls
@@ -749,13 +805,15 @@ function ProductionApp() {
   return (
     <NotificationProvider maxNotifications={5}>
       <AnalysisProvider>
-        <ComparisonProvider>
-          <UIProvider>
-            <PlaybackProvider>
-              <ProductionAppContent />
-            </PlaybackProvider>
-          </UIProvider>
-        </ComparisonProvider>
+        <LibraryProvider>
+          <ComparisonProvider>
+            <UIProvider>
+              <PlaybackProvider>
+                <ProductionAppContent />
+              </PlaybackProvider>
+            </UIProvider>
+          </ComparisonProvider>
+        </LibraryProvider>
       </AnalysisProvider>
     </NotificationProvider>
   );

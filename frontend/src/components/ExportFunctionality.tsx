@@ -9,6 +9,7 @@ import {
   generateSummaryReport 
 } from '../utils/export-generators';
 import { getExportOptions } from '../config/exportOptions';
+import { CinematicExportEngine } from '../services/CinematicExportEngine';
 import { FormatSelector } from './export/FormatSelector';
 import { AdvancedExportOptions } from './export/AdvancedExportOptions';
 import { ExportProgress } from './export/ExportProgress';
@@ -79,6 +80,12 @@ export function ExportFunctionality({
               includeMetadata: true,
             });
           }
+          break;
+        }
+
+        case 'cinematic': {
+          const content = await CinematicExportEngine.generateExport(analysisData, audioFile?.name || 'Track');
+          downloadFile(content, `${baseFilename}-cinematic.html`, 'text/html');
           break;
         }
 
