@@ -20,7 +20,7 @@ To provide a professional-grade, browser-based audio analysis workstation that c
 - **DSP Analysis:** Centroid, Roll-off, Flux, Energy, ZCR, and MFCC extraction.
 - **Musical Intelligence:** High-confidence BPM detection and Key/Scale estimation.
 - **Harmonic A/B Workbench:** Professional comparative analysis with real-time "Ghost Layer" overlays and Melodic DNA visualization.
-- **Spectral Visualization Engine:** Real-time WASM-powered spectrogram and luminous waveform trace with reactive phosphor bloom.
+- **Spectral Visualization Engine:** High-performance, IndexedDB-backed tiled spectrogram and luminous waveform trace with cache-first rehydration.
 - **ML Inference Engine:** On-device TensorFlow.js classification for Genre, Mood, and Danceability.
 - **Reactive Atmosphere:** The interface physically adapts its lighting, stability, and character to the "soul" of the music.
 - **Sample-Accurate Transport:** Precise audio playback with A/B looping and zero-latency visualization sync.
@@ -28,7 +28,7 @@ To provide a professional-grade, browser-based audio analysis workstation that c
 ## Architectural Integrity
 - **Strict Type Safety:** The codebase adheres to strict TypeScript standards (no `any` types) to ensure reliability and self-documentation.
 - **Dual-Track "Ghost" Architecture:** Cached reference strategy using `audioId` and `cacheVersion` to allow instant A/B swapping without re-analysis.
-- **Progressive Intelligence:** ML features degrade gracefully on constrained devices via progressive memory detection and deferred initialization.
+- **Progressive Intelligence:** Persistent artifacts (spectrograms, analysis results) use tiled hydration and background processing to ensure <100ms first-paint times.
 - **Modular Component Design:** UI components are strictly scoped (max 300 lines) to ensure maintainability, testability, and performance.
 - **Zero-Mock Policy:** Core logic is tested against real implementations where feasible, avoiding fragile mock-heavy tests.
 - **Fault Tolerance:** Robust crash recovery with auto-restart (<500ms) and telemetry-driven performance monitoring.

@@ -13,6 +13,7 @@
 
 ## Visualization & UI
 - **Rendering:** Multi-threaded pipeline using OffscreenCanvas and dedicated Visualization Worker.
+- **Persistent Artifacts:** Tiled spectrogram architecture backed by IndexedDB caching and dual-trigger batch writes for cache-first rehydration.
 - **Styling:** Tailwind CSS with custom Glassmorphic/DAW theme.
 - **Data Bridge:** VisualizerBridge for zero-copy Transferable data flow from DSP workers to the rendering thread.
 - **Lighting Model:** "Reactive Atmosphere" engine using CSS Custom Properties to modulate glow, flicker, and color palette based on ML confidence.
