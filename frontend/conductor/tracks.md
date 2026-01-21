@@ -12,4 +12,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 *Link: [./conductor/tracks/professional_metering_20260120/](./conductor/tracks/professional_metering_20260120/)*
 
 ## [ ] Track: Export & Reporting - Visual Innovation
+
 *Link: [./conductor/tracks/export_reporting_20260120/](./conductor/tracks/export_reporting_20260120/)*
+
+
+
+---
+
+
+
+- [ ] **Track: Spectrogram as a Persistent Artifact**
+
+*Link: [./conductor/tracks/spectrogram_persistence_20260121/](./conductor/tracks/spectrogram_persistence_20260121/)*
