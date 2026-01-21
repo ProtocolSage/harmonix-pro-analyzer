@@ -64,11 +64,13 @@ export const CinematicExportEngine = {
         genre: data.genre?.genre || 'Unknown'
       },
       spectral: {
-        // Downsample to 256x64 for the 3D mesh
         spectrogram: data.melSpectrogram 
           ? this.downsampleSpectrogram(data.melSpectrogram, timeSteps, MEL_BINS, 256, 64)
           : [],
         dimensions: { time: 256, freq: 64 }
+      },
+      harmonic: {
+        chords: data.harmonic?.chords || []
       }
     };
 
@@ -150,6 +152,7 @@ export const CinematicExportEngine = {
     <div class="controls">
         <button class="btn active" onclick="switchView('terrain')">Spectral Terrain</button>
         <button class="btn" onclick="switchView('galaxy')">Audio Galaxy</button>
+        <button class="btn" onclick="switchView('constellation')">Harmonic Constellation</button>
         <button class="btn" onclick="switchView('dna')">Genre DNA</button>
     </div>
 
@@ -158,7 +161,8 @@ export const CinematicExportEngine = {
         "imports": {
             "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
             "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-            "gsap": "https://unpkg.com/gsap@3.12.5/index.js"
+            "gsap": "https://unpkg.com/gsap@3.12.5/index.js",
+            "d3": "https://cdn.jsdelivr.net/npm/d3@7/+esm"
         }
     }
     </script>
@@ -170,6 +174,7 @@ export const CinematicExportEngine = {
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
         import gsap from 'gsap';
+        import * as d3 from 'd3';
 
         const data = ${serializedData};
         
@@ -205,10 +210,12 @@ export const CinematicExportEngine = {
         // --- GROUP CONTAINERS ---
         const terrainGroup = new THREE.Group();
         const galaxyGroup = new THREE.Group();
+        const constellationGroup = new THREE.Group();
         const dnaGroup = new THREE.Group();
         
         scene.add(terrainGroup);
         scene.add(galaxyGroup);
+        scene.add(constellationGroup);
         scene.add(dnaGroup);
 
         // --- 1. SPECTRAL TERRAIN MESH ---
@@ -311,9 +318,92 @@ export const CinematicExportEngine = {
             galaxyGroup.visible = false; // Start hidden
         }
 
+        // --- 3. HARMONIC CONSTELLATION (D3 + Three.js) ---
+        function createConstellation() {
+            if (!data.harmonic?.chords || data.harmonic.chords.length === 0) return;
+
+            // 1. Process Chords into unique nodes and links
+            const nodes = [];
+            const links = [];
+            const chordMap = new Map();
+
+            data.harmonic.chords.forEach((c, i) => {
+                if (!chordMap.has(c.chord)) {
+                    const node = { id: c.chord, count: 1, firstSeen: c.start };
+                    nodes.push(node);
+                    chordMap.set(c.chord, node);
+                } else {
+                    chordMap.get(c.chord).count++;
+                }
+
+                // Link to previous chord (Chronological connection)
+                if (i > 0) {
+                    links.push({ source: data.harmonic.chords[i-1].chord, target: c.chord, type: 'flow' });
+                }
+            });
+
+            // 2. D3 Force Simulation (2D projected to 3D)
+            const simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(20))
+                .force("charge", d3.forceManyBody().strength(-50))
+                .force("center", d3.forceCenter(0, 0))
+                .stop();
+
+            // Run simulation for a few ticks
+            for (let i = 0; i < 100; i++) simulation.tick();
+
+            // 3. Render Stars (Points)
+            const starGeo = new THREE.SphereGeometry(0.5, 16, 16);
+            const starMat = new THREE.MeshStandardMaterial({ 
+                color: 0xffd700, 
+                emissive: 0xffd700,
+                emissiveIntensity: 2
+            });
+
+            nodes.forEach(node => {
+                const mesh = new THREE.Mesh(starGeo, starMat);
+                // Map 2D D3 positions to 3D sphere or plane
+                mesh.position.set(node.x, node.y, (Math.random() - 0.5) * 10);
+                mesh.scale.setScalar(0.5 + (node.count / nodes.length) * 2);
+                
+                // Add Label (Sprite)
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 256; canvas.height = 64;
+                ctx.fillStyle = 'white'; ctx.font = 'bold 40px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(node.id, 128, 45);
+                
+                const tex = new THREE.CanvasTexture(canvas);
+                const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+                const sprite = new THREE.Sprite(spriteMat);
+                sprite.position.y = 2;
+                sprite.scale.set(4, 1, 1);
+                mesh.add(sprite);
+
+                constellationGroup.add(mesh);
+            });
+
+            // 4. Render Lines
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.3 });
+            links.forEach(link => {
+                if (link.source.id === link.target.id) return; // Skip self-loops
+                
+                const geometry = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(link.source.x, link.source.y, link.source.z || 0),
+                    new THREE.Vector3(link.target.x, link.target.y, link.target.z || 0)
+                ]);
+                const line = new THREE.Line(geometry, lineMat);
+                constellationGroup.add(line);
+            });
+
+            constellationGroup.visible = false;
+        }
+
         // --- INIT ---
         createTerrain();
         createGalaxy();
+        createConstellation();
 
         // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
@@ -357,6 +447,7 @@ export const CinematicExportEngine = {
             // Transitions
             if (mode === 'terrain') {
                 galaxyGroup.visible = false;
+                constellationGroup.visible = false;
                 terrainGroup.visible = true;
                 
                 gsap.to(camera.position, { x: 0, y: 20, z: 40, duration: 1.5, ease: "power2.inOut" });
@@ -365,10 +456,19 @@ export const CinematicExportEngine = {
             } 
             else if (mode === 'galaxy') {
                 galaxyGroup.visible = true;
+                constellationGroup.visible = false;
                 terrainGroup.visible = false;
 
                 gsap.to(camera.position, { x: 0, y: 40, z: 0, duration: 1.5, ease: "power2.inOut" }); // Top down-ish
                 controls.autoRotateSpeed = 2.0;
+            }
+            else if (mode === 'constellation') {
+                galaxyGroup.visible = false;
+                constellationGroup.visible = true;
+                terrainGroup.visible = false;
+
+                gsap.to(camera.position, { x: 30, y: 30, z: 30, duration: 1.5, ease: "power2.inOut" });
+                controls.autoRotateSpeed = 1.0;
             }
         };
     </script>

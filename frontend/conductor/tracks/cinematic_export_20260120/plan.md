@@ -10,7 +10,7 @@
 - [x] **Spectral Terrain**: Implement the 3D mesh fly-over logic with downsampled data.
 - [x] **Audio Galaxy Refinement**: Map particles to actual spectrogram data.
 - [x] **Navigation System**: Implement the mode switcher (Galaxy -> Terrain) with GSAP transitions.
-- [ ] **Harmonic Constellation**: Implement the D3 force-directed chord map.
+- [x] **Harmonic Constellation**: Implement the D3 force-directed chord map.
 - [ ] **Genre DNA**: Implement the helical 3D strand generator.
 
 ## Phase 3: Polish & Performance (Obsidian Reliability)
