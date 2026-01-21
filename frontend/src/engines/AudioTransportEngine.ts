@@ -38,6 +38,11 @@ export class AudioTransportEngine {
   private readonly HEAVY_SEEK_THROTTLE_MS = 100;
   private abortController: AbortController | null = null;
 
+  // Sync Bridge Properties
+  private syncView: Float32Array | null = null;
+  private useSAB: boolean = false;
+  private messageChannel: MessageChannel | null = null;
+
   constructor(context: AudioContext) {
     this.context = context;
     this.gainNode = this.context.createGain();
@@ -102,7 +107,7 @@ export class AudioTransportEngine {
   }
 
   public setBuffer(buffer: AudioBuffer): void {
-    this.stop();
+    this.stopImmediate();
     this.buffer = buffer;
     this.offset = 0;
     console.log(`🎵 Transport: Buffer set. Duration: ${buffer.duration.toFixed(2)}s, SR: ${buffer.sampleRate}Hz`);
@@ -152,7 +157,16 @@ export class AudioTransportEngine {
         severity: ErrorSeverity.HIGH,
         message: 'Failed to start audio playback',
         originalError: error instanceof Error ? error : new Error(String(error)),
-        context: 'AudioTransportEngine.play'
+        context: {
+          timestamp: new Date(),
+          userAgent: navigator.userAgent,
+          url: window.location.href,
+          sessionId: 'session-' + Date.now(), // Fallback
+          component: 'AudioTransportEngine',
+          action: 'play'
+        },
+        recoverable: true,
+        suggestions: ['Refresh the page', 'Check audio device']
       });
     }
   }
@@ -281,6 +295,7 @@ export class AudioTransportEngine {
    */
   private stopImmediate(): void {
     if (this.sourceNode) {
+      this.sourceNode.onended = null;
       try {
         this.sourceNode.stop();
         this.sourceNode.disconnect();

@@ -84,8 +84,8 @@ export class MelodyAnalysisEngine {
         guessUnvoiced: true
       });
 
-      const pitchTrack = Array.from(this.essentia.vectorToArray(result.pitch));
-      const pitchConfidence = Array.from(this.essentia.vectorToArray(result.pitchConfidence));
+      const pitchTrack = Array.from(this.essentia.vectorToArray(result.pitch) as number[]);
+      const pitchConfidence = Array.from(this.essentia.vectorToArray(result.pitchConfidence) as number[]);
 
       inputVector.delete();
       result.pitch.delete();

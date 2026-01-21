@@ -67,6 +67,7 @@ export function useVisualizer(config?: Partial<VisualizerConfig> & { rendererId?
     canvasRef,
     start,
     stop,
-    feed
+    feed,
+    connect
   };
 }

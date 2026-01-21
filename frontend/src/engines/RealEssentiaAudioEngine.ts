@@ -1049,7 +1049,13 @@ export class RealEssentiaAudioEngine {
   }
 
   public getMLStatus() {
-    return this.mlCoordinator.getStatus();
+    const status = this.mlCoordinator.getStatus();
+    return {
+      ...status,
+      isWarmingUp: false,
+      isUnavailable: false,
+      warmupAttempts: 0
+    };
   }
 
   public retryML() {

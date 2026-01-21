@@ -14,19 +14,47 @@ export function ComparisonRack() {
       return null;
     }
 
-    const bands = ['Low', 'Mid', 'High'];
-    const features = ['energy', 'centroid', 'brightness'];
+    const sSpec = source.analysisData.spectral;
+    const rSpec = reference.analysisData.spectral;
+
+    // Helper to safely get mean value
+    const getVal = (obj: any, key: string, idx?: number) => {
+        if (!obj) return 0;
+        if (key === 'contrast' && Array.isArray(obj.contrast) && idx !== undefined) {
+            return obj.contrast[idx] || 0;
+        }
+        if (obj[key] && typeof obj[key] === 'object' && 'mean' in obj[key]) {
+            return obj[key].mean;
+        }
+        return 0;
+    };
+
+    // Use Spectral Contrast if available (actual bands)
+    if (Array.isArray(sSpec.contrast) && Array.isArray(rSpec.contrast)) {
+         return [
+            { band: 'Low Band', val: getVal(sSpec, 'contrast', 0), ref: getVal(rSpec, 'contrast', 0) },
+            { band: 'Mid Band', val: getVal(sSpec, 'contrast', 2), ref: getVal(rSpec, 'contrast', 2) },
+            { band: 'High Band', val: getVal(sSpec, 'contrast', 4), ref: getVal(rSpec, 'contrast', 4) }
+         ].map(item => ({
+             band: item.band,
+             delta: item.ref !== 0 ? (item.val - item.ref) / item.ref : 0
+         }));
+    }
+
+    // Fallback to Global Features (Renamed to be accurate)
+    const features = [
+        { key: 'energy', label: 'Total Energy' },
+        { key: 'centroid', label: 'Timbre (Centroid)' },
+        { key: 'brightness', label: 'Brightness' } // or rolloff
+    ];
     
-    return bands.map(band => {
-      const sVal = source.analysisData!.spectral![features[bands.indexOf(band)] as any] as any;
-      const rVal = reference.analysisData!.spectral![features[bands.indexOf(band)] as any] as any;
-      
-      const sMean = sVal?.mean || 0;
-      const rMean = rVal?.mean || 0;
+    return features.map(f => {
+      const sMean = getVal(sSpec, f.key);
+      const rMean = getVal(rSpec, f.key);
       
       // Delta as percentage
       const delta = rMean !== 0 ? (sMean - rMean) / rMean : 0;
-      return { band, delta };
+      return { band: f.label, delta };
     });
   }, [source.analysisData, reference.analysisData, isComparisonMode]);
 

@@ -31,7 +31,7 @@ async function initBackend(preferredBackend: 'wasm' | 'webgl' | 'cpu' = 'wasm') 
       console.log(`📡 ML Worker: Attempting to set backend to ${backend}...`);
       
       if (backend === 'wasm') {
-        tf.wasm.setWasmPaths('/assets/tfjs-backend-wasm/'); 
+        (tf as any).wasm.setWasmPaths('/assets/tfjs-backend-wasm/'); 
       }
 
       await tf.setBackend(backend);

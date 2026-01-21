@@ -174,6 +174,10 @@ export class StreamingAnalysisEngine {
     console.error('Streaming worker error:', error);
     handleAnalysisError(error, 'streaming-analysis');
     this.isAnalyzing = false;
+    if (this.rejectCallback) {
+      this.rejectCallback(error);
+      this.rejectCallback = null;
+    }
   }
 
   private checkMemoryUsage(): void {
@@ -252,10 +256,12 @@ export class StreamingAnalysisEngine {
   private progressCallback: ((progress: AnalysisProgress) => void) | null = null;
   private progressiveCallback: ((result: ProgressiveAnalysisResult) => void) | null = null;
   private completeCallback: ((result: AudioAnalysisResult) => void) | null = null;
+  private rejectCallback: ((error: Error) => void) | null = null;
   private analysisStartTime = 0;
   private totalDuration = 0;
   private sampleRate = 44100;
   private channels = 1;
+  private totalChunks = 0;
 
   public async analyzeFile(
     file: File,
@@ -296,6 +302,7 @@ export class StreamingAnalysisEngine {
 
       // Create chunks
       const chunks = this.createAudioChunks(audioBuffer);
+      this.totalChunks = chunks.length;
       
       // Reset worker state
       this.worker?.postMessage({ type: 'RESET' });
@@ -305,9 +312,12 @@ export class StreamingAnalysisEngine {
       // Analyze chunks
       return new Promise((resolve, reject) => {
         this.completeCallback = resolve;
+        this.rejectCallback = reject;
         
         // Process chunks sequentially to manage memory
-        this.processChunksSequentially(chunks);
+        this.processChunksSequentially(chunks).catch(error => {
+          this.handleWorkerError(error);
+        });
       });
 
     } catch (error) {
@@ -431,8 +441,7 @@ export class StreamingAnalysisEngine {
     progressPercentage: number;
   } {
     const chunksCompleted = this.chunkResults.size;
-    // This would need to be tracked properly in a real implementation
-    const totalChunks = chunksCompleted; // Placeholder
+    const totalChunks = this.totalChunks;
     
     return {
       chunksCompleted,

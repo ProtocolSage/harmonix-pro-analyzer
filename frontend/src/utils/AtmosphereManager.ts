@@ -69,7 +69,42 @@ export class AtmosphereManager {
     this.startLoop();
   }
 
-  // ... (getInstance, update, setFrozen, calculateTargetState methods remain same)
+  public static getInstance(): AtmosphereManager {
+    if (!AtmosphereManager.instance) {
+      AtmosphereManager.instance = new AtmosphereManager();
+    }
+    return AtmosphereManager.instance;
+  }
+
+  public update(confidence: number, mood?: string) {
+    if (this.isFrozen) return;
+    this.currentConfidence = confidence;
+    if (mood) this.currentMood = mood;
+    this.targetState = this.calculateTargetState();
+  }
+
+  public setFrozen(frozen: boolean) {
+    this.isFrozen = frozen;
+    this.targetState = {
+      ...this.calculateTargetState(),
+      isLocked: frozen
+    };
+  }
+
+  private calculateTargetState(): AtmosphereState {
+    const { radius, intensity } = calculateGlow(this.currentConfidence);
+    const flicker = calculateFlicker(this.currentConfidence);
+    const colors = mapMoodToColor(this.currentMood);
+    
+    return {
+      glowRadius: radius,
+      glowIntensity: intensity,
+      flickerRate: flicker,
+      primaryColor: colors.primary,
+      secondaryColor: colors.secondary,
+      isLocked: this.isFrozen
+    };
+  }
 
   private applyState(state: AtmosphereState) {
     const root = document.documentElement;

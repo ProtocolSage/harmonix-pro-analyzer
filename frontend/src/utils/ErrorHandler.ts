@@ -9,6 +9,7 @@ export enum ErrorType {
   PERMISSION = 'permission',
   COMPATIBILITY = 'compatibility',
   PERFORMANCE = 'performance',
+  RUNTIME = 'runtime',
   UNKNOWN = 'unknown'
 }
 

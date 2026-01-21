@@ -32,8 +32,7 @@ export class MLEngineCoordinator {
   private checkSystemCapabilities() {
     // 1. Device Memory API (RAM in GB)
     if ('deviceMemory' in navigator) {
-      // @ts-ignore
-      const ram = navigator.deviceMemory;
+      const ram = (navigator as any).deviceMemory as number;
       if (ram <= 2) {
         this.enableLowMemoryMode('Low RAM (<= 2GB)');
         return;
@@ -232,6 +231,15 @@ export class MLEngineCoordinator {
       isLowMemoryMode: this.isLowMemoryMode,
       restartCount: this.workerRestartCount
     };
+  }
+
+  public retryWarmup() {
+    if (!this.isInitialized && !this.isLowMemoryMode) {
+      // If worker not ready, try spawning/init
+      if (!this.worker) this.init();
+    } else {
+      this.startWarmup();
+    }
   }
 
   public dispose() {

@@ -46,8 +46,8 @@ export class MeteringEngine {
    * Efficiently calculates Peak, RMS, and Correlation
    */
   getLevels(): MeterData {
-    this.analyserL.getFloatTimeDomainData(this.bufferL);
-    this.analyserR.getFloatTimeDomainData(this.bufferR);
+    this.analyserL.getFloatTimeDomainData(this.bufferL as any);
+    this.analyserR.getFloatTimeDomainData(this.bufferR as any);
 
     let sumSqL = 0;
     let sumSqR = 0;
@@ -99,7 +99,7 @@ export class MeteringEngine {
     // For RTA, we can just grab one channel or average. 
     // Usually easier to grab Left for now or merge.
     // AnalyserNode.getByteFrequencyData fills the buffer.
-    this.analyserL.getByteFrequencyData(targetBuffer);
+    this.analyserL.getByteFrequencyData(targetBuffer as any);
   }
 
   dispose() {

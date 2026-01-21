@@ -68,5 +68,13 @@ declare module 'essentia.js/dist/essentia.js-core.es.js' {
     ): KeyExtractorOutput;
 
     MFCC(spectrum: EssentiaVectorFloat, numberCoefficients: number, sampleRate: number): MFCCOutput;
+
+    HPCP(frame: EssentiaVectorFloat, params?: any): { hpcp: EssentiaVectorFloat };
+
+    ChordsDetection(hpcp: EssentiaVectorFloat, params?: any): { chords: EssentiaVectorFloat; strength: EssentiaVectorFloat };
+
+    PitchMelodia(audio: EssentiaVectorFloat, params?: any): { pitch: EssentiaVectorFloat; pitchConfidence: EssentiaVectorFloat };
+
+    vectorToArray(vector: EssentiaVectorFloat): Float32Array | number[] | string[];
   }
 }

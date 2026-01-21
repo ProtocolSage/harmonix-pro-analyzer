@@ -89,6 +89,10 @@ class DBService {
       terminated() {
         console.error('DB Connection terminated unexpectedly.');
       },
+    }).catch(err => {
+        console.error('Failed to open database:', err);
+        this.isSupported = false;
+        return null as any; // Allow app to continue without DB
     });
   }
 

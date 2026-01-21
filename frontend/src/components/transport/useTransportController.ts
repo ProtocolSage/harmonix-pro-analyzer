@@ -59,6 +59,8 @@ export function useTransportController(args: UseTransportControllerArgs) {
     isShuffle: false
   });
 
+  const lastTimeUpdateRef = useRef<number>(0);
+
   // Initialize transport listeners
   useEffect(() => {
     const unsubscribe = transport.onTick((time) => {
@@ -73,12 +75,14 @@ export function useTransportController(args: UseTransportControllerArgs) {
         }
       }
 
-      if (!isDragging) {
-        // We still update React state for time readouts, but throttled?
-        // Or just let it be for now since it's only one component.
-        // Actually, the spec says "No React render churn".
-        // Let's only update state when playing state changes or on seek.
-        // For time readouts, we might need a separate "light path" for the text too.
+      // Throttled State Update (for time text) - Update approx 10fps
+      const now = performance.now();
+      if (!isDragging && now - lastTimeUpdateRef.current > 100) {
+        setPlaybackState(prev => {
+          if (Math.abs(prev.currentTime - time) < 0.1) return prev; // Dedup
+          return { ...prev, currentTime: time };
+        });
+        lastTimeUpdateRef.current = now;
       }
     });
 
@@ -88,6 +92,13 @@ export function useTransportController(args: UseTransportControllerArgs) {
 
     return unsubscribe;
   }, [transport, isDragging]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      transport.stop();
+    };
+  }, [transport]);
 
   // Load and decode audio file for transport
   useEffect(() => {
@@ -342,6 +353,7 @@ export function useTransportController(args: UseTransportControllerArgs) {
     setVolume,
     handleProgressClick,
     handleProgressDrag,
+    seek,
   };
 }
 

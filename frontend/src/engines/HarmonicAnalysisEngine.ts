@@ -132,8 +132,8 @@ export class HarmonicAnalysisEngine {
         sampleRate: this.sampleRate
       });
 
-      const detectedChords = Array.from(this.essentia.vectorToArray(chordsResult.chords));
-      const strengths = Array.from(this.essentia.vectorToArray(chordsResult.strength));
+      const detectedChords = Array.from(this.essentia.vectorToArray(chordsResult.chords) as string[]);
+      const strengths = Array.from(this.essentia.vectorToArray(chordsResult.strength) as number[]);
 
       inputVector.delete();
       hpcpResult.hpcp.delete();

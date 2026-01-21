@@ -306,6 +306,9 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const value: UIContextValue = {
     state,
     dispatch,
+    toggleTheme,
+    setTheme,
+    togglePrecisionMode,
     toggleSidebar,
     setSidebarCollapsed,
     showSettingsModal,
