@@ -3,32 +3,32 @@
 ## Phase 1: Persistence Schema & Manifest
 **Goal:** Establish the type-safe foundation for tiled storage, manifest tracking, and atomic cleanup.
 
-- [ ] **Task: Define Artifact Types**
-    - [ ] Update `src/types/persistence.ts` to include:
+- [x] **Task: Define Artifact Types**
+    - [x] Update `src/types/persistence.ts` to include:
         - `SpectrogramTileArtifact` (`type: 'spectrogram_tile'`, `codec: 'raw'`)
         - `SpectrogramManifestArtifact` (`type: 'spectrogram_manifest'`, `codec: 'json'`)
-    - [ ] Ensure all artifact interfaces include:
+    - [x] Ensure all artifact interfaces include:
         - `schemaVersion`
         - `audioFingerprint`
         - deterministic metadata (at minimum: `fftSize`, `hopSize`, `sampleRate`, `windowFunction`, `freqBins`, `timeFrames`, `dbMin`, `dbMax`, `gamma`, `tileStartSec`, `tileDurationSec`)
-    - [ ] **Lock key contract**
+    - [x] **Lock key contract**
         - Tile key format **MUST** be `t:${tileIndex}` (0-based)
         - Manifest key **MUST** be `'default'`
-    - [ ] Define manifest structure:
+    - [x] Define manifest structure:
         - `tileSpec` (DSP determinism contract)
         - `completedTiles` (bitmap preferred; ranges acceptable if compact)
         - `fingerprint`
         - `schemaVersion`
-- [ ] **Task: Extend DBService API (Atomic Operations)**
-    - [ ] Add `listArtifactsByType(trackId, type)` for bulk tile queries
-    - [ ] Add `deleteArtifactsByType(trackId, type)` for invalidation cascades (single transaction)
-    - [ ] Ensure `putArtifactsBatch(artifacts)` uses **a single IDB transaction** for all writes
-    - [ ] (If needed) Add `getArtifactsKeysByTrackAndType(trackId, type)` only for targeted deletes; otherwise delete-by-index
-- [ ] **Task: Implement Manifest Logic in SessionManager**
-    - [ ] `initSpectrogramManifest(trackId, tileSpec)` creates manifest (key `'default'`)
-    - [ ] `readSpectrogramManifest(trackId)` with runtime schema validation
-    - [ ] `updateManifestCompletion(trackId, tileIndex)` marks completion (bitmap recommended)
-    - [ ] Unit tests:
+- [x] **Task: Extend DBService API (Atomic Operations)**
+    - [x] Add `listArtifactsByType(trackId, type)` for bulk tile queries
+    - [x] Add `deleteArtifactsByType(trackId, type)` for invalidation cascades (single transaction)
+    - [x] Ensure `putArtifactsBatch(artifacts)` uses **a single IDB transaction** for all writes
+    - [x] (If needed) Add `getArtifactsKeysByTrackAndType(trackId, type)` only for targeted deletes; otherwise delete-by-index
+- [x] **Task: Implement Manifest Logic in SessionManager**
+    - [x] `initSpectrogramManifest(trackId, tileSpec)` creates manifest (key `'default'`)
+    - [x] `readSpectrogramManifest(trackId)` with runtime schema validation
+    - [x] `updateManifestCompletion(trackId, tileIndex)` marks completion (bitmap recommended)
+    - [x] Unit tests:
         - manifest serialization/deserialization
         - completion tracking correctness
 - [ ] **Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)**
