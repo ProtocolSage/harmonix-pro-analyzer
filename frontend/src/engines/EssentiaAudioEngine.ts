@@ -410,7 +410,7 @@ export class EssentiaAudioEngine {
     }
   }
 
-  private async analyze(type: string, data: unknown): Promise<any> {
+  private async analyze(type: string, data: unknown): Promise<unknown> {
     if (!this.analysisWorker || !this.isInitialized) {
       throw new Error('Worker not ready');
     }

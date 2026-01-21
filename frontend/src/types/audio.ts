@@ -346,9 +346,9 @@ export interface EngineStatus {
 
 export interface WorkerMessage {
   type: string;
-  data?: any;
+  data?: unknown;
   messageId?: number;
-  result?: any;
+  result?: unknown;
   error?: string;
 }
 

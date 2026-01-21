@@ -61,10 +61,10 @@ export type MLWorkerMessageType =
   | 'ANALYSIS_COMPLETE'
   | 'TELEMETRY';
 
-export interface MLWorkerMessage {
-  type: MLWorkerMessageType;
-  id?: string;
-  payload?: any;
+export interface MLWorkerInboundMessage {
+  type: string;
+  payload?: unknown;
+  messageId?: number;
 }
 
 /**
