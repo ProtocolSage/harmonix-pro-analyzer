@@ -61,7 +61,8 @@ export const CinematicExportEngine = {
         key: data.key?.key ? `${data.key.key} ${data.key.scale}` : 'Unknown',
         duration: data.duration,
         energy: data.spectral?.energy?.mean || 0.5,
-        genre: data.genre?.genre || 'Unknown'
+        genre: data.genre?.genre || 'Unknown',
+        genrePredictions: data.genre?.predictions || []
       },
       spectral: {
         spectrogram: data.melSpectrogram 
@@ -400,10 +401,70 @@ export const CinematicExportEngine = {
             constellationGroup.visible = false;
         }
 
+        // --- 4. GENRE DNA HELIX (3D TubeGeometry) ---
+        function createDNA() {
+            if (!data.metadata.genrePredictions || data.metadata.genrePredictions.length === 0) return;
+
+            const predictions = data.metadata.genrePredictions.slice(0, 5); // Top 5
+            const tubeRadius = 0.5;
+            const helixRadius = 10;
+            const height = 100;
+            const turns = 5;
+
+            predictions.forEach((p, idx) => {
+                const points = [];
+                const colorObj = new THREE.Color().setHSL(idx / predictions.length, 0.8, 0.5);
+                
+                // Offset angle for each strand
+                const startAngle = (idx / predictions.length) * Math.PI * 2;
+
+                for (let i = 0; i <= 100; i++) {
+                    const t = i / 100;
+                    const angle = startAngle + t * Math.PI * 2 * turns;
+                    const x = Math.cos(angle) * helixRadius;
+                    const z = Math.sin(angle) * helixRadius;
+                    const y = (t - 0.5) * height;
+                    points.push(new THREE.Vector3(x, y, z));
+                }
+
+                const curve = new THREE.CatmullRomCurve3(points);
+                // Thickness based on confidence
+                const radius = 0.1 + p.confidence * 1.5;
+                const geometry = new THREE.TubeGeometry(curve, 100, radius, 8, false);
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: colorObj,
+                    emissive: colorObj,
+                    emissiveIntensity: 0.5,
+                    metalness: 0.9,
+                    roughness: 0.1
+                });
+
+                const mesh = new THREE.Mesh(geometry, material);
+                dnaGroup.add(mesh);
+
+                // Add Label at start of strand
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 256; canvas.height = 64;
+                ctx.fillStyle = colorObj.getStyle(); ctx.font = 'bold 32px Inter';
+                ctx.fillText(p.genre + ' (' + Math.round(p.confidence * 100) + '%)', 0, 45);
+                
+                const tex = new THREE.CanvasTexture(canvas);
+                const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+                const sprite = new THREE.Sprite(spriteMat);
+                sprite.position.copy(points[0]).multiplyScalar(1.2);
+                sprite.scale.set(8, 2, 1);
+                dnaGroup.add(sprite);
+            });
+
+            dnaGroup.visible = false;
+        }
+
         // --- INIT ---
         createTerrain();
         createGalaxy();
         createConstellation();
+        createDNA();
 
         // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
@@ -465,10 +526,20 @@ export const CinematicExportEngine = {
             else if (mode === 'constellation') {
                 galaxyGroup.visible = false;
                 constellationGroup.visible = true;
+                dnaGroup.visible = false;
                 terrainGroup.visible = false;
 
                 gsap.to(camera.position, { x: 30, y: 30, z: 30, duration: 1.5, ease: "power2.inOut" });
                 controls.autoRotateSpeed = 1.0;
+            }
+            else if (mode === 'dna') {
+                galaxyGroup.visible = false;
+                constellationGroup.visible = false;
+                dnaGroup.visible = true;
+                terrainGroup.visible = false;
+
+                gsap.to(camera.position, { x: 40, y: 0, z: 40, duration: 1.5, ease: "power2.inOut" });
+                controls.autoRotateSpeed = 3.0;
             }
         };
     </script>

@@ -11,7 +11,7 @@
 - [x] **Audio Galaxy Refinement**: Map particles to actual spectrogram data.
 - [x] **Navigation System**: Implement the mode switcher (Galaxy -> Terrain) with GSAP transitions.
 - [x] **Harmonic Constellation**: Implement the D3 force-directed chord map.
-- [ ] **Genre DNA**: Implement the helical 3D strand generator.
+- [x] **Genre DNA**: Implement the helical 3D strand generator.
 
 ## Phase 3: Polish & Performance (Obsidian Reliability)
 - [ ] **Epic Intro Animation**: Choreograph the camera zoom and title reveal.
