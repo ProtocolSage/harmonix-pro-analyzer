@@ -143,10 +143,16 @@ export function useTransportController(args: UseTransportControllerArgs) {
 
         // Hook up sync bridge
         const bridge = transport.getSyncBridge();
-        // If visualizationEngineRef.current supports it (it will after I update it)
-        if ((visualizationEngineRef.current as any).setSyncBridge) {
-            (visualizationEngineRef.current as any).setSyncBridge(bridge);
-        }
+        
+    // Use type guard or cast to specific known interface instead of any
+    interface VizEngineWithSync extends RealtimeVisualizationEngine {
+      setSyncBridge(bridge: ReturnType<AudioTransportEngine['getSyncBridge']>): void;
+    }
+
+    const engine = visualizationEngineRef.current;
+    if (engine && 'setSyncBridge' in (engine as unknown as Record<string, unknown>)) {
+      (engine as unknown as VizEngineWithSync).setSyncBridge(bridge);
+    }
 
         return () => {
           unsubscribe();
@@ -188,10 +194,8 @@ export function useTransportController(args: UseTransportControllerArgs) {
         onPlaybackStateChange?.(true);
 
         if (visualizationEngineRef.current && enableRealtimeVisualization) {
-          // RealtimeVisualizationEngine currently expects an HTMLAudioElement
-          // I will need to update it to use the sync bridge instead
-          // For now, we'll just start its internal loop
-          visualizationEngineRef.current.startVisualization(null as any);
+          // RealtimeVisualizationEngine startVisualization now accepts null for sync-bridge mode
+          visualizationEngineRef.current.startVisualization(null as unknown as HTMLAudioElement);
         }
       }
     } catch (error) {

@@ -9,14 +9,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 describe('Worker Message Protocol', () => {
   let mockWorker: any;
-  let messageHandlers: Map<string, Function>;
+  let messageHandlers: Map<string, (ev: any) => void>;
 
   beforeEach(() => {
     messageHandlers = new Map();
 
     mockWorker = {
       postMessage: vi.fn(),
-      addEventListener: vi.fn((event: string, handler: Function) => {
+      addEventListener: vi.fn((event: string, handler: (ev: any) => void) => {
         messageHandlers.set(event, handler);
       }),
       removeEventListener: vi.fn(),

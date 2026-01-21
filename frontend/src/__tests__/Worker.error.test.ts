@@ -94,7 +94,7 @@ describe('Worker Stability Regression Tests', () => {
 
   it('should handle WORKER_ERROR during initialization gracefully', async () => {
     // 1. Setup init listener failure
-    mockWorker.addEventListener.mockImplementation((event: string, handler: Function) => {
+    mockWorker.addEventListener.mockImplementation((event: string, handler: (ev: any) => void) => {
       if (event === 'message') {
         // Trigger initialization error immediately
         handler({
@@ -118,7 +118,7 @@ describe('Worker Stability Regression Tests', () => {
 
   it('should cleanup active analysis if worker sends WORKER_ERROR during processing', async () => {
     // 1. Successful init
-    mockWorker.addEventListener.mockImplementation((event: string, handler: Function) => {
+    mockWorker.addEventListener.mockImplementation((event: string, handler: (ev: any) => void) => {
       if (event === 'message') {
         mockWorker.messageHandler = handler;
         handler({ data: { type: 'WORKER_READY', payload: { success: true } } });
@@ -152,7 +152,7 @@ describe('Worker Stability Regression Tests', () => {
 
   it('should reject analysis promise on specific ANALYSIS_ERROR', async () => {
     // 1. Successful init
-    mockWorker.addEventListener.mockImplementation((event: string, handler: Function) => {
+    mockWorker.addEventListener.mockImplementation((event: string, handler: (ev: any) => void) => {
       if (event === 'message') {
         // init uses addEventListener
         handler({ data: { type: 'WORKER_READY', payload: { success: true } } });

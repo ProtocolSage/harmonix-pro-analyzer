@@ -15,7 +15,7 @@ export class MLEngineCoordinator {
   
   private pendingPredictions = new Map<string, { 
     resolve: (value: MLInferenceResult) => void, 
-    reject: (reason?: any) => void 
+    reject: (reason: Error) => void 
   }>();
 
   private workerRestartCount = 0;
@@ -69,7 +69,7 @@ export class MLEngineCoordinator {
     if (this.worker) return;
 
     // Use requestIdleCallback for deferred loading
-    const idleCallback = (window as any).requestIdleCallback || ((cb: Function) => setTimeout(cb, 1000));
+    const idleCallback = (window as any).requestIdleCallback || ((cb: (deadline: IdleDeadline) => void) => setTimeout(cb, 1000));
     
     idleCallback(() => {
       this.spawnWorker();

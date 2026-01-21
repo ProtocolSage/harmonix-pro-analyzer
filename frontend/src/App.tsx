@@ -12,13 +12,13 @@ import { StudioHeader } from './components/StudioHeader';
 import { ComparisonProvider, useComparison } from './contexts/ComparisonContext';
 import { ReferenceTrackLoader } from './components/analysis/ReferenceTrackLoader';
 import { ComparisonRack } from './components/analysis/ComparisonRack';
-import type { EngineStatus, AudioAnalysisResult } from './types/audio';
+import type { EngineStatus, AnalysisProgress } from './types/audio';
 
 function AppContent() {
   const { state: compState, dispatch: compDispatch, toggleComparisonMode } = useComparison();
   const [engineStatus, setEngineStatus] = useState<EngineStatus>({ status: 'initializing' });
   const [engine] = useState(() => new RealEssentiaAudioEngine());
-  const [analysisProgress, setAnalysisProgress] = useState<any>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
@@ -199,7 +199,7 @@ function AppContent() {
                 <div>
                   <h3 className="studio-subheader" style={{ margin: 0 }}>Comparison Mode</h3>
                   <p style={{ fontSize: '11px', color: 'var(--studio-text-tertiary)', marginTop: '4px' }}>
-                    Press 'S' to swap roles
+                    Press &apos;S&apos; to swap roles
                   </p>
                 </div>
                 <button 

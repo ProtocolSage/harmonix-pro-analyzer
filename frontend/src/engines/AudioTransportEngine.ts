@@ -33,7 +33,7 @@ export class AudioTransportEngine {
   private syncBuffer: SharedArrayBuffer | null = null;
 
   // Throttling
-  private seekThrottleTimer: any | null = null;
+  private seekThrottleTimer: ReturnType<typeof setTimeout> | null = null;
   private lastHeavySeekTime = 0;
   private readonly HEAVY_SEEK_THROTTLE_MS = 100;
   private abortController: AbortController | null = null;
@@ -299,7 +299,9 @@ export class AudioTransportEngine {
       try {
         this.sourceNode.stop();
         this.sourceNode.disconnect();
-      } catch (e) {}
+      } catch (e) {
+        console.warn('⚠️ Transport: Stop immediate failed (likely already stopped)', e);
+      }
       this.sourceNode = null;
     }
     this.isPlaying = false;

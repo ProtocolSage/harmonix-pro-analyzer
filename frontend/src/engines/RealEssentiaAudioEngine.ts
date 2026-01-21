@@ -221,7 +221,7 @@ export class RealEssentiaAudioEngine {
       severity: ErrorSeverity.CRITICAL,
       message: `Engine error in ${context}`,
       originalError: errorObj,
-      context: ErrorHandler['createContext'](context, 'RealEssentiaAudioEngine', {
+      context: (ErrorHandler as any).createContext(context, 'RealEssentiaAudioEngine', {
         engineStatus: this.status.status
       }),
       recoverable: context !== 'initialization',
@@ -1143,12 +1143,13 @@ export class RealEssentiaAudioEngine {
     this.stopRealtimeAnalysis();
 
     // Initialize Audio Context for Realtime
-    const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
-    this.realtimeContext = new AudioContextCtor();
+    const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AudioContextCtor();
+    this.realtimeContext = ctx;
     
     // Connect Audio Element
-    this.realtimeSource = this.realtimeContext.createMediaElementSource(audioElement);
-    this.realtimeAnalyser = this.realtimeContext.createAnalyser();
+    this.realtimeSource = ctx.createMediaElementSource(audioElement);
+    this.realtimeAnalyser = ctx.createAnalyser();
     
     // Config Analyser
     this.realtimeAnalyser.fftSize = 2048; // Matches default VisualizerConfig

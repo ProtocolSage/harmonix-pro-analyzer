@@ -7,7 +7,8 @@ describe('Visual Adaptive System', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    // @ts-ignore - reset singleton
+    // Access private static instance for testing reset
+    // @ts-expect-error - Accessing private member for testing
     VisualAdaptiveManager.instance = undefined;
     manager = VisualAdaptiveManager.getInstance();
     

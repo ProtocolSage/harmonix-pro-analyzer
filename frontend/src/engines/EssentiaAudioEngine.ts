@@ -1,6 +1,7 @@
 import type { 
   AudioAnalysisResult, 
   AnalysisOptions, 
+  AnalysisProgress,
   EngineStatus, 
   ExportResult, 
   ExportOptions,
@@ -32,7 +33,8 @@ export class EssentiaAudioEngine {
       await this.initializeServiceWorker();
       
       // Initialize audio context
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
+      const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      this.audioContext = new AudioContextCtor({
         sampleRate: 44100,
         latencyHint: 'balanced'
       });
@@ -408,7 +410,7 @@ export class EssentiaAudioEngine {
     }
   }
 
-  private async analyze(type: string, data: any): Promise<any> {
+  private async analyze(type: string, data: unknown): Promise<any> {
     if (!this.analysisWorker || !this.isInitialized) {
       throw new Error('Worker not ready');
     }
@@ -428,7 +430,8 @@ export class EssentiaAudioEngine {
   private async decodeAudioFile(file: File): Promise<AudioBuffer> {
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const audioContext = new AudioContextCtor();
       
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
       await audioContext.close();
@@ -490,7 +493,7 @@ export class EssentiaAudioEngine {
     }
   }
 
-  private async analyzeStream(audioBuffer: AudioBuffer, progressCallback?: (progress: any) => void): Promise<any> {
+  private async analyzeStream(audioBuffer: AudioBuffer, progressCallback?: (progress: AnalysisProgress) => void): Promise<Partial<AudioAnalysisResult>> {
     const chunkSize = 44100 * 30; // 30-second chunks
     const overlap = 44100 * 5; // 5-second overlap
     const audioVector = audioBuffer.getChannelData(0);
@@ -508,7 +511,7 @@ export class EssentiaAudioEngine {
         const chunkAnalysis = await this.analyze('FULL_ANALYSIS', {
           audioVector: chunk,
           sampleRate
-        });
+        }) as Partial<AudioAnalysisResult>;
         
         results.push({
           ...chunkAnalysis,
@@ -520,9 +523,10 @@ export class EssentiaAudioEngine {
         if (progressCallback) {
           progressCallback({
             stage: 'analyzing',
-            completed: i + 1,
-            total: totalChunks,
-            percentage: ((i + 1) / totalChunks) * 100
+            percentage: ((i + 1) / totalChunks) * 100,
+            progress: (i + 1) / totalChunks,
+            currentStep: `Analyzing chunk ${i + 1}/${totalChunks}`,
+            completedSteps: []
           });
         }
       } catch (error) {
@@ -533,8 +537,8 @@ export class EssentiaAudioEngine {
     return this.aggregateStreamResults(results);
   }
 
-  private aggregateStreamResults(chunks: StreamingChunk[]): any {
-    if (chunks.length === 0) return null;
+  private aggregateStreamResults(chunks: StreamingChunk[]): Partial<AudioAnalysisResult> {
+    if (chunks.length === 0) return {};
     
     // Aggregate tempo analysis with confidence weighting
     const tempoValues = chunks.map(c => ({ bpm: c.tempo?.bpm || 0, confidence: c.tempo?.confidence || 0 }));
@@ -584,7 +588,7 @@ export class EssentiaAudioEngine {
     return {
       key: { key: dominantKey, confidence: keyVotes[dominantKey] || 0, scale: 'major' },
       tempo: { bpm: avgTempo, confidence: weightedTempo.totalWeight / chunks.length },
-      spectral: spectralFeatures,
+      spectral: spectralFeatures as unknown as AudioAnalysisResult['spectral'],
       mfcc: chunks[0]?.mfcc || [],
       chunks: chunks.length,
       analysisType: 'streaming'
