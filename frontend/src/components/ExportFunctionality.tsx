@@ -84,7 +84,19 @@ export function ExportFunctionality({
         }
 
         case 'cinematic': {
-          const content = await CinematicExportEngine.generateExport(analysisData, audioFile?.name || 'Track');
+          let audioBase64 = '';
+          if (audioFile) {
+            const reader = new FileReader();
+            audioBase64 = await new Promise((resolve) => {
+              reader.onload = () => {
+                const result = reader.result as string;
+                // Keep only the base64 data part
+                resolve(result.split(',')[1]);
+              };
+              reader.readAsDataURL(audioFile);
+            });
+          }
+          const content = await CinematicExportEngine.generateExport(analysisData, audioFile?.name || 'Track', audioBase64);
           downloadFile(content, `${baseFilename}-cinematic.html`, 'text/html');
           break;
         }

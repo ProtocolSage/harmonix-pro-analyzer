@@ -14,15 +14,15 @@
 - [x] **Genre DNA**: Implement the helical 3D strand generator.
 
 ## Phase 3: Polish & Performance (Obsidian Reliability)
-- [ ] **Epic Intro Animation**: Choreograph the camera zoom and title reveal.
-- [ ] **Shader Optimization**: Implement custom GLSL for particle glowing and terrain shading.
-- [ ] **Generative Colors**: System to map Key/Genre to unique color palettes.
-- [ ] **Inlining Engine**: Ensure all libraries and data are correctly embedded for offline use.
+- [x] **Epic Intro Animation**: Choreograph the camera zoom and title reveal.
+- [x] **Shader Optimization**: Implement custom GLSL for particle glowing and terrain shading.
+- [x] **Generative Colors**: System to map Key/Genre to unique color palettes.
+- [x] **Inlining Engine**: Ensure all libraries and data are correctly embedded for offline use.
 
 ## Phase 4: Advanced Interaction
-- [ ] **Audio Playback**: Embed a lightweight player that syncs the 3D scene to time.
-- [ ] **Canvas Recording**: Add ability to record the visualization as an MP4/WebM.
-- [ ] **Mobile Optimization**: Touch controls and simplified shaders for mobile browsers.
+- [x] **Audio Playback**: Embed a lightweight player that syncs the 3D scene to time.
+- [x] **Canvas Recording**: Add ability to record the visualization as an MP4/WebM.
+- [x] **Mobile Optimization**: Touch controls and simplified shaders for mobile browsers.
 
 ## Phase 5: Verification
 - [ ] **Test**: Export track -> Open in Chrome/Safari/Firefox -> Verify 60FPS.

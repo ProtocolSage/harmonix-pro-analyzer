@@ -58,7 +58,7 @@ export const CinematicExportEngine = {
   /**
    * Generates the full HTML source for a cinematic report.
    */
-  async generateExport(data: AudioAnalysisResult, filename: string): Promise<string> {
+  async generateExport(data: AudioAnalysisResult, filename: string, audioData?: string): Promise<string> {
     // 1. Prepare Optimized Data
     const MEL_BINS = 96; // Assuming standard mel count from our engine
     const timeSteps = data.melSpectrogram ? Math.floor(data.melSpectrogram.length / MEL_BINS) : 0;
@@ -175,11 +175,16 @@ export const CinematicExportEngine = {
     </div>
 
     <div class="controls">
-        <button class="btn active" onclick="switchView('terrain')">Spectral Terrain</button>
+        <button class="btn active" id="playBtn" onclick="togglePlayback()">Play Audio</button>
+        <button class="btn" id="recordBtn" onclick="toggleRecording()">Record</button>
+        <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 8px;"></div>
+        <button class="btn" onclick="switchView('terrain')">Spectral Terrain</button>
         <button class="btn" onclick="switchView('galaxy')">Audio Galaxy</button>
         <button class="btn" onclick="switchView('constellation')">Harmonic Constellation</button>
         <button class="btn" onclick="switchView('dna')">Genre DNA</button>
     </div>
+
+    <audio id="audioSource" loop></audio>
 
     <script type="importmap">
     {
@@ -202,6 +207,59 @@ export const CinematicExportEngine = {
         import * as d3 from 'd3';
 
         const data = ${serializedData};
+        const audioBase64 = "${audioData || ''}";
+        
+        // --- AUDIO SETUP ---
+        const audio = document.getElementById('audioSource');
+        if (audioBase64) {
+            audio.src = "data:audio/mpeg;base64," + audioBase64;
+        }
+
+        window.togglePlayback = () => {
+            if (audio.paused) {
+                audio.play();
+                document.getElementById('playBtn').innerText = "Pause Audio";
+            } else {
+                audio.pause();
+                document.getElementById('playBtn').innerText = "Play Audio";
+            }
+        };
+
+        // --- RECORDING SETUP ---
+        let mediaRecorder;
+        let recordedChunks = [];
+        let isRecording = false;
+
+        window.toggleRecording = () => {
+            if (!isRecording) {
+                recordedChunks = [];
+                const stream = renderer.domElement.captureStream(60);
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+                
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'Harmonix_Record_' + Date.now() + '.webm';
+                    a.click();
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                document.getElementById('recordBtn').innerText = "Stop Recording";
+                document.getElementById('recordBtn').style.background = "#ef4444";
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                document.getElementById('recordBtn').innerText = "Record";
+                document.getElementById('recordBtn').style.background = "transparent";
+            }
+        };
         
         // --- SETUP ---
         const scene = new THREE.Scene();
@@ -211,14 +269,18 @@ export const CinematicExportEngine = {
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
+        
+        // Mobile Optimization
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 2));
+        
         document.getElementById('app').appendChild(renderer.domElement);
 
         // --- POST PROCESSING (BLOOM) ---
         const renderScene = new RenderPass(scene, camera);
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
         bloomPass.threshold = 0.2;
-        bloomPass.strength = 1.2; // Intense bloom
+        bloomPass.strength = isMobile ? 0.6 : 1.2; // Halve bloom on mobile
         bloomPass.radius = 0.5;
 
         const composer = new EffectComposer(renderer);
