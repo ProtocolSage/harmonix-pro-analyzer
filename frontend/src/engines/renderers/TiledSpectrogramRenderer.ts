@@ -1,5 +1,5 @@
 import { IRenderer, VisualizationPayload, VisualizerConfig } from '../../types/visualizer';
-import { SpectrogramTileArtifact } from '../../types/persistence';
+import { SpectrogramTileArtifact, SpectrogramTileMetadata } from '../../types/persistence';
 
 /**
  * TiledSpectrogramRenderer: Implementation of the Platinum Tiled Spectrogram.
@@ -10,7 +10,7 @@ export class TiledSpectrogramRenderer implements IRenderer {
   
   private tileCache = new Map<string, { 
     canvas: OffscreenCanvas | HTMLCanvasElement;
-    meta: any;
+    meta: SpectrogramTileMetadata;
   }>();
   
   private colorMap: Uint8ClampedArray | null = null;
@@ -89,14 +89,11 @@ export class TiledSpectrogramRenderer implements IRenderer {
     ctx.fillRect(0, 0, width, height);
     
     // Draw tiles
-    this.tileCache.forEach((tile, key) => {
+    this.tileCache.forEach((tile) => {
       const { canvas, meta } = tile;
       const { tileStartSec, tileDurationSec } = meta;
       
-      // Map time to pixels (Conceptual: track duration needed)
-      // Assuming 'data.progress' or similar is not available for full width,
-      // but IRenderer usually gets 'data' which might have duration.
-      const totalDuration = (data as any).totalDuration || 300; // Fallback 5m
+      const totalDuration = data.totalDuration || 300; // Fallback 5m
       
       const x = (tileStartSec / totalDuration) * width;
       const w = (tileDurationSec / totalDuration) * width;

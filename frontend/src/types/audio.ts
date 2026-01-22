@@ -318,7 +318,7 @@ export interface AudioAnalysisResult {
 }
 
 export interface AnalysisProgress {
-  stage: 'decoding' | 'analyzing' | 'complete' | 'batch';
+  stage: 'decoding' | 'analyzing' | 'complete' | 'batch' | 'error';
   mlPending?: boolean;
   percentage: number;
   progress: number; // 0-1

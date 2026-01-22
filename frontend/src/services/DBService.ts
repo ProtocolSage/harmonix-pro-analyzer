@@ -45,7 +45,7 @@ class DBService {
   private async init(): Promise<IDBPDatabase<HarmonixDB> | null> {
     try {
       return await openDB<HarmonixDB>(DB_NAME, DB_VERSION, {
-        upgrade(db, oldVersion, newVersion, transaction) {
+        upgrade(db, oldVersion, newVersion) {
           console.log(`[DBService] Upgrading from v${oldVersion} to v${newVersion}`);
           
           // Migration Block: Version 1 (Initial Platinum Schema)

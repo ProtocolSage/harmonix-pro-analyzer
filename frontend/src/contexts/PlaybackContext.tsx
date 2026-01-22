@@ -12,6 +12,7 @@ export interface PlaybackState {
   isPlaying: boolean;
   currentTime: number;
   duration: number;
+  lastTrackId: string | null;
 
   // Settings
   isRepeatEnabled: boolean;
@@ -31,6 +32,7 @@ export interface PlaybackState {
 
 export type PlaybackAction =
   | { type: 'SET_AUDIO_BUFFER'; payload: AudioBuffer }
+  | { type: 'SET_LAST_TRACK_ID'; payload: string | null }
   | { type: 'PLAY' }
   | { type: 'PAUSE' }
   | { type: 'TOGGLE_PLAY_PAUSE' }
@@ -50,6 +52,7 @@ const initialState: PlaybackState = {
   isPlaying: false,
   currentTime: 0,
   duration: 0,
+  lastTrackId: null,
   isRepeatEnabled: false,
   volume: 1.0,
   playbackRate: 1.0,
@@ -71,6 +74,12 @@ function playbackReducer(state: PlaybackState, action: PlaybackAction): Playback
         currentTime: 0,
         isPlaying: false,
         pendingSeek: null,
+      };
+
+    case 'SET_LAST_TRACK_ID':
+      return {
+        ...state,
+        lastTrackId: action.payload,
       };
 
     case 'PLAY':
@@ -158,6 +167,7 @@ interface PlaybackContextValue {
 
   // Convenience actions
   setAudioBuffer: (buffer: AudioBuffer) => void;
+  setLastTrackId: (id: string | null) => void;
   play: () => void;
   pause: () => void;
   togglePlayPause: () => void;
@@ -203,6 +213,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     engine.setBuffer(buffer);
     dispatch({ type: 'SET_AUDIO_BUFFER', payload: buffer });
   }, [engine]);
+
+  const setLastTrackId = useCallback((id: string | null) => {
+    dispatch({ type: 'SET_LAST_TRACK_ID', payload: id });
+  }, []);
 
   const play = useCallback(() => {
     engine.play(state.currentTime);
@@ -263,6 +277,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     engine,
     metering,
     setAudioBuffer,
+    setLastTrackId,
     play,
     pause,
     togglePlayPause,

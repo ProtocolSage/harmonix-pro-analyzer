@@ -13,3 +13,7 @@ export const PLATINUM_SPECTROGRAM_CONFIG: SpectrogramTileSpec = {
 };
 
 export const SPECTROGRAM_SCHEMA_VERSION = 1;
+
+// Code Contract: Keys
+export const SPECTROGRAM_MANIFEST_KEY = 'default' as const;
+export const spectrogramTileKey = (tileIndex: number) => `t:${tileIndex}` as const;

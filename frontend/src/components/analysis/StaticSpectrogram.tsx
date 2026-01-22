@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useVisualizer } from '../../hooks/useVisualizer';
 import { usePlayback } from '../../contexts/PlaybackContext';
 import { spectrogramEngine } from '../../engines/SpectrogramAnalysisEngine';

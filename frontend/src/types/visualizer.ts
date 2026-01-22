@@ -24,6 +24,9 @@ export interface VisualizerConfig {
   debug: boolean;
 }
 
+import type { MeterLevels } from './metering';
+import type { SpectrogramTileArtifact } from './persistence';
+
 /**
  * Data packet sent from the DSP worker to the Visualizer Engine.
  * Designed for zero-copy transfer (Transferable or SharedArrayBuffer).
@@ -51,6 +54,22 @@ export interface VisualizationPayload {
     peak: number;
     loudness: number; // LUFS momentary
   };
+
+  /**
+   * High-precision metering data (dBFS, stereo).
+   * Optional to allow non-meter visualizers to reuse the payload.
+   */
+  levels?: MeterLevels;
+
+  /**
+   * Platinum: Full track duration for static workstation mapping.
+   */
+  totalDuration?: number;
+
+  /**
+   * Platinum: Inbound spectrogram tile for progressive hydration.
+   */
+  spectrogramTile?: SpectrogramTileArtifact;
 }
 
 /**

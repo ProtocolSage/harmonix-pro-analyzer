@@ -171,7 +171,7 @@ function analysisReducer(state: AnalysisState, action: AnalysisAction): Analysis
         ...state,
         isAnalyzing: false,
         analysisProgress: {
-          stage: 'error' as any,
+          stage: 'error',
           percentage: 0,
           progress: 0,
           currentStep: `Error: ${action.payload}`,
