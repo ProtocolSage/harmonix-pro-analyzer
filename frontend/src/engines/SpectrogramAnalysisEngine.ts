@@ -16,6 +16,13 @@ export class SpectrogramAnalysisEngine {
   }
 
   private initializeWorker() {
+    // Vitest/JSDOM (and some SSR contexts) don't provide Worker
+    if (typeof Worker === 'undefined') {
+      // Mark initialized so callers don't hang; analysis will be a no-op in this env.
+      this.isInitialized = true;
+      return;
+    }
+
     const workerUrl = new URL('../workers/spectrogram-analysis-worker.js', import.meta.url);
     this.worker = new Worker(workerUrl);
     this.worker.onmessage = this.handleWorkerMessage.bind(this);
@@ -29,7 +36,7 @@ export class SpectrogramAnalysisEngine {
     } else if (type === 'TILE_COMPLETE') {
       // Direct pass to SessionManager for persistence
       sessionManager.enqueueSpectrogramTile(payload as SpectrogramTileArtifact);
-      
+
       // Dispatch event for UI rehydration
       window.dispatchEvent(new CustomEvent('SPECTROGRAM_TILE_READY', { detail: payload }));
     }
@@ -51,10 +58,10 @@ export class SpectrogramAnalysisEngine {
     // 2. Cache Miss or Invalidation
     console.log('[SpectrogramEngine] Cache Miss. Computing Tiles...');
     await sessionManager.invalidateSpectrogramCache(trackId);
-    
+
     const duration = audioBuffer.duration;
     const totalTiles = Math.ceil(duration / PLATINUM_SPECTROGRAM_CONFIG.tileSeconds);
-    
+
     await sessionManager.initSpectrogramManifest(trackId, fingerprint, PLATINUM_SPECTROGRAM_CONFIG, totalTiles);
 
     const channelData = audioBuffer.getChannelData(0);
@@ -64,7 +71,7 @@ export class SpectrogramAnalysisEngine {
     for (let i = 0; i < totalTiles; i++) {
       const startSec = i * PLATINUM_SPECTROGRAM_CONFIG.tileSeconds;
       const durationSec = PLATINUM_SPECTROGRAM_CONFIG.tileSeconds + PLATINUM_SPECTROGRAM_CONFIG.guardSeconds;
-      
+
       this.worker.postMessage({
         type: 'COMPUTE_TILE',
         payload: {

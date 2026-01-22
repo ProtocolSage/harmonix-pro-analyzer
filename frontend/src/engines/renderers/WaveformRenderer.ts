@@ -2,10 +2,10 @@ import { IRenderer, VisualizationPayload, VisualizerConfig } from '../../types/v
 
 export class WaveformRenderer implements IRenderer {
   public readonly id = 'waveform';
-  
+
   private backgroundPath: Path2D | null = null;
   private lastWaveformData: Float32Array | null = null;
-  
+
   private readonly colors = {
     waveDim: 'rgba(14, 165, 233, 0.15)',   // Sky-500 very dim
     waveActive: '#0EA5E9',                 // Sky-500
@@ -78,13 +78,13 @@ export class WaveformRenderer implements IRenderer {
     this.drawGrid(ctx, width, height);
 
     // 2. Draw Reflection (The Glass Floor)
-    ctx.save();
+    (ctx as any).save?.();
     ctx.translate(0, height * 1.4); // Position below main wave
     ctx.scale(1, -0.4); // Invert and squash
     ctx.strokeStyle = this.colors.reflection;
     ctx.lineWidth = 1;
     ctx.stroke(this.backgroundPath!);
-    ctx.restore();
+    (ctx as any).restore?.();
 
     // 3. Draw Background (Inactive) Waveform
     ctx.beginPath();
@@ -94,7 +94,7 @@ export class WaveformRenderer implements IRenderer {
 
     // 4. Draw Foreground (Active) Waveform with Glow
     if (progressX > 0) {
-      ctx.save();
+      (ctx as any).save?.();
       // Clip to progress
       ctx.beginPath();
       ctx.rect(0, 0, progressX, height);
@@ -106,14 +106,14 @@ export class WaveformRenderer implements IRenderer {
       ctx.strokeStyle = this.colors.waveActive;
       ctx.lineWidth = 2;
       ctx.stroke(this.backgroundPath!);
-      
+
       // Inner High-Intensity Core
       ctx.shadowBlur = 4;
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 0.5;
       ctx.stroke(this.backgroundPath!);
-      
-      ctx.restore();
+
+      (ctx as any).restore?.();
     }
 
     // 5. Draw Luxury Playhead
@@ -121,23 +121,23 @@ export class WaveformRenderer implements IRenderer {
   }
 
   private drawGrid(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, width: number, height: number) {
-    ctx.save();
+    (ctx as any).save?.();
     ctx.beginPath();
     ctx.strokeStyle = this.colors.gridLine;
     ctx.lineWidth = 1;
-    
+
     // Vertical subdivision grid
     for (let i = 1; i < 20; i++) {
       const x = (i / 20) * width;
       ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
     }
-    
+
     // Horizontal zero-crossing line
     ctx.moveTo(0, height / 2);
     ctx.lineTo(width, height / 2);
     ctx.stroke();
-    
+
     // Stronger ticks every 10%
     ctx.beginPath();
     ctx.strokeStyle = this.colors.tickLine;
@@ -149,12 +149,12 @@ export class WaveformRenderer implements IRenderer {
       ctx.lineTo(x, height);
     }
     ctx.stroke();
-    ctx.restore();
+    (ctx as any).restore?.();
   }
 
   private drawPlayhead(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, x: number, height: number) {
-    ctx.save();
-    
+    (ctx as any).save?.();
+
     // Playhead Line
     ctx.beginPath();
     ctx.strokeStyle = this.colors.playhead;
@@ -168,7 +168,7 @@ export class WaveformRenderer implements IRenderer {
     // "Jewel" Tips
     ctx.fillStyle = this.colors.playhead;
     ctx.shadowBlur = 10;
-    
+
     // Top diamond
     ctx.beginPath();
     ctx.moveTo(x, 0);
@@ -186,9 +186,9 @@ export class WaveformRenderer implements IRenderer {
     ctx.lineTo(x + 4, height + 6);
     ctx.closePath();
     ctx.fill();
-    
-    ctx.restore();
+
+    (ctx as any).restore?.();
   }
 
-  destroy(): void {}
+  destroy(): void { }
 }
