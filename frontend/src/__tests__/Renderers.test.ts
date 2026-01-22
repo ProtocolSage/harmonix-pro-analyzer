@@ -21,18 +21,29 @@ global.OffscreenCanvas = class OffscreenCanvas {
   getContext() { return mockCtx; }
 } as any;
 
+const noop = () => {};
 const mockCtx = {
-  clearRect: vi.fn(),
-  beginPath: vi.fn(),
-  moveTo: vi.fn(),
-  lineTo: vi.fn(),
-  stroke: vi.fn(),
-  createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
-  drawImage: vi.fn(),
-  createImageData: vi.fn(() => ({ data: new Uint8ClampedArray(4) })),
-  putImageData: vi.fn(),
-  canvas: {},
-  fillRect: vi.fn(),
+  clearRect: noop,
+  beginPath: noop,
+  moveTo: noop,
+  lineTo: noop,
+  stroke: noop,
+  fill: noop,
+  closePath: noop,
+  save: noop,
+  restore: noop,
+  translate: noop,
+  scale: noop,
+  rotate: noop,
+  transform: noop,
+  setTransform: noop,
+  resetTransform: noop,
+  createLinearGradient: () => ({ addColorStop: noop }),
+  drawImage: noop,
+  createImageData: () => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 }),
+  putImageData: noop,
+  canvas: { width: 0, height: 0 },
+  fillRect: noop,
 } as unknown as CanvasRenderingContext2D;
 
 const mockPayload: VisualizationPayload = {
