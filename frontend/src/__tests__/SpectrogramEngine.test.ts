@@ -1,8 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterAll, beforeAll } from 'vitest';
 import { SpectrogramRenderer } from '../engines/renderers/SpectrogramRenderer';
 import { VisualizationPayload } from '../types/visualizer';
 
 describe('Spectrogram Engine', () => {
+  let originalOffscreen: any;
+
+  beforeAll(() => {
+    originalOffscreen = (globalThis as any).OffscreenCanvas;
+    (globalThis as any).OffscreenCanvas = undefined;
+  });
+
   const mockCtx = {
     drawImage: vi.fn(),
     createImageData: vi.fn((w, h) => ({ data: new Uint8ClampedArray(w * h * 4) })),
@@ -25,6 +32,10 @@ describe('Spectrogram Engine', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterAll(() => {
+    (globalThis as any).OffscreenCanvas = originalOffscreen;
   });
 
   const mockPayload: VisualizationPayload = {

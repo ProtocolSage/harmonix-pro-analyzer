@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
+import { renderWithProviders } from './test-utils';
 import { MainStage } from '../components/shell/MainStage';
 
 // Mock child components to verify composition
@@ -30,14 +31,14 @@ describe('MainStage Composition', () => {
   };
 
   it('renders WaveformContainer and AnalysisOverlay', () => {
-    render(<MainStage {...defaultProps} />);
+    renderWithProviders(<MainStage {...defaultProps} />);
 
     expect(screen.getByTestId('waveform-container')).toBeInTheDocument();
     expect(screen.getByTestId('analysis-overlay')).toBeInTheDocument();
   });
 
   it('passes correct props to sub-components', () => {
-    render(<MainStage {...defaultProps} />);
+    renderWithProviders(<MainStage {...defaultProps} />);
 
     const waveform = screen.getByTestId('waveform-container');
     const overlay = screen.getByTestId('analysis-overlay');
@@ -51,7 +52,7 @@ describe('MainStage Composition', () => {
   });
 
   it('renders export section', () => {
-    render(<MainStage {...defaultProps} />);
+    renderWithProviders(<MainStage {...defaultProps} />);
     expect(screen.getByText('Export Analysis')).toBeInTheDocument();
   });
 });
