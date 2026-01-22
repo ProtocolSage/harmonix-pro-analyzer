@@ -1,29 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { dbService } from '../services/DBService';
-import { AudioAnalysisResult } from '../types/audio';
+import { dbService, TrackRecord } from '../services/DBService';
 
-// Re-defining locally to avoid circular dependencies if DBService moves, 
-// but ideally we export this from DBService or a shared types file.
-// For now, matching DBService.ts
-export interface TrackRecord {
-  id: string;
-  filename: string;
-  dateAdded: number;
-  duration: number;
-  thumbnailBlob?: Blob;
-  analysis: {
-    spectral: {
-      bpm?: number;
-      key?: string;
-      energy?: number;
-    };
-    tags: {
-      genre: string[];
-      mood: string[];
-    };
-    full?: AudioAnalysisResult;
-  };
-}
+export type { TrackRecord };
 
 interface LibraryContextValue {
   tracks: TrackRecord[];

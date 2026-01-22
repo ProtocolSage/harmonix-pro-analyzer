@@ -5,7 +5,7 @@ export interface HealthCheckResult {
   component: string;
   status: 'healthy' | 'warning' | 'error';
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   timestamp: Date;
 }
 
@@ -29,10 +29,10 @@ class HealthCheckService {
     // Browser compatibility checks
     this.checks.set('browser-support', async () => {
       const issues: string[] = [];
-      const details: Record<string, any> = {};
+      const details: Record<string, unknown> = {};
 
       // Check essential APIs
-      if (!window.AudioContext && !(window as any).webkitAudioContext) {
+      if (!window.AudioContext && !(window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext) {
         issues.push('Web Audio API not supported');
       }
 
@@ -68,7 +68,7 @@ class HealthCheckService {
     this.checks.set('memory', async () => {
       // @ts-expect-error - performance.memory is not in TypeScript lib but exists in Chrome
       const memory = performance.memory;
-      const details: Record<string, any> = {};
+      const details: Record<string, unknown> = {};
 
       if (memory) {
         const usedMB = memory.usedJSHeapSize / (1024 * 1024);
@@ -111,7 +111,7 @@ class HealthCheckService {
     // Performance check
     this.checks.set('performance', async () => {
       const metrics = PerformanceMonitor.getReport();
-      const details: Record<string, any> = {
+      const details: Record<string, unknown> = {
         totalMetrics: metrics.summary.totalMetrics,
         averageDuration: Math.round(metrics.summary.averageDuration),
         memoryPeak: Math.round(metrics.memoryUsage.peak / (1024 * 1024))
@@ -144,7 +144,7 @@ class HealthCheckService {
     // Error rate check
     this.checks.set('error-rate', async () => {
       const errorStats = ErrorHandler.getErrorStats();
-      const details: Record<string, any> = {
+      const details: Record<string, unknown> = {
         totalErrors: errorStats.total,
         recentErrors: errorStats.recent,
         criticalErrors: errorStats.bySeverity.critical
@@ -180,7 +180,7 @@ class HealthCheckService {
       // @ts-expect-error - navigator.connection is experimental and not in TypeScript lib
       const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
       
-      const details: Record<string, any> = {
+      const details: Record<string, unknown> = {
         online: isOnline
       };
 
@@ -213,11 +213,12 @@ class HealthCheckService {
 
     // Audio system check
     this.checks.set('audio-system', async () => {
-      const details: Record<string, any> = {};
+      const details: Record<string, unknown> = {};
 
       try {
         // Test audio context creation
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const audioContext = new AudioContextCtor();
         details.sampleRate = audioContext.sampleRate;
         details.state = audioContext.state;
         details.maxChannelCount = audioContext.destination.maxChannelCount;
@@ -296,20 +297,20 @@ class HealthCheckService {
     const recommendations: string[] = [];
 
     results.forEach(result => {
-      if (result.status === 'error' || result.status === 'warning') {
+        const details = result.details || {};
         switch (result.component) {
           case 'memory':
-            if (result.details?.usagePercent > 60) {
+            if ((details.usagePercent as number) > 60) {
               recommendations.push('Close unnecessary browser tabs and applications to free memory');
             }
             break;
           case 'performance':
-            if (result.details?.alerts > 0) {
+            if ((details.alerts as number) > 0) {
               recommendations.push('Check performance alerts for optimization opportunities');
             }
             break;
           case 'error-rate':
-            if (result.details?.criticalErrors > 0) {
+            if ((details.criticalErrors as number) > 0) {
               recommendations.push('Review critical errors and consider refreshing the application');
             }
             break;
@@ -325,7 +326,6 @@ class HealthCheckService {
             recommendations.push('Check audio permissions and ensure no other applications are using audio');
             break;
         }
-      }
     });
 
     // General recommendations based on overall health

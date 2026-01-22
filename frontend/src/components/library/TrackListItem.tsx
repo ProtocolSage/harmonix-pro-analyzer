@@ -42,19 +42,19 @@ export const TrackListItem: React.FC<TrackListItemProps> = ({ track, onDelete, o
         
         {/* Analysis Chips */}
         <div className="hp-track-chips">
-          {track.analysis.spectral.bpm && (
+          {track.metadata.bpm && (
             <span className="hp-chip hp-chip-blue">
-              {Math.round(track.analysis.spectral.bpm)} BPM
+              {Math.round(track.metadata.bpm)} BPM
             </span>
           )}
-          {track.analysis.spectral.key && (
+          {track.metadata.key && (
             <span className="hp-chip hp-chip-purple">
-              {track.analysis.spectral.key}
+              {track.metadata.key}
             </span>
           )}
-          {track.analysis.tags.genre && track.analysis.tags.genre.length > 0 && (
+          {track.metadata.genre && track.metadata.genre.length > 0 && (
              <span className="hp-chip hp-chip-emerald">
-               {track.analysis.tags.genre[0]}
+               {track.metadata.genre[0]}
              </span>
           )}
         </div>

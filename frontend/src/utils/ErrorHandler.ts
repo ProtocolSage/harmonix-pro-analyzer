@@ -28,7 +28,7 @@ export interface ErrorContext {
   sessionId: string;
   component?: string;
   action?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AppError {
@@ -41,7 +41,7 @@ export interface AppError {
   stack?: string;
   recoverable: boolean;
   suggestions: string[];
-  telemetryData?: Record<string, any>;
+  telemetryData?: Record<string, unknown>;
 }
 
 export interface ErrorRecoveryAction {
@@ -320,7 +320,7 @@ class ErrorHandlerClass {
     });
   }
 
-  public handleAnalysisError(error: Error, stage: string, audioData?: any): AppError {
+  public handleAnalysisError(error: Error, stage: string, audioData?: { length?: number; sampleRate?: number }): AppError {
     return this.handleError({
       type: ErrorType.ANALYSIS,
       severity: ErrorSeverity.HIGH,
@@ -431,7 +431,7 @@ export const ErrorHandler = new ErrorHandlerClass();
 export const handleError = (errorData: Omit<AppError, 'id'>) => ErrorHandler.handleError(errorData);
 export const handleFileError = (error: Error, filename: string, fileSize: number) => 
   ErrorHandler.handleFileError(error, filename, fileSize);
-export const handleAnalysisError = (error: Error, stage: string, audioData?: any) => 
+export const handleAnalysisError = (error: Error, stage: string, audioData?: { length?: number; sampleRate?: number }) => 
   ErrorHandler.handleAnalysisError(error, stage, audioData);
 export const handleVisualizationError = (error: Error, chartType: string) => 
   ErrorHandler.handleVisualizationError(error, chartType);

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { MainStageProps } from '../../types/layout';
 import { WaveformContainer } from './WaveformContainer';
 import { AnalysisOverlay } from './AnalysisOverlay';
-import { SpectralVisualizer } from '../analysis/SpectralVisualizer';
+import { StaticSpectrogram } from '../analysis/StaticSpectrogram';
 
 type SectionData = {
   id: string;
@@ -64,7 +64,7 @@ export function MainStage({
         sections={sections}
       />
 
-      <SpectralVisualizer height={200} />
+      <StaticSpectrogram height={200} />
 
       <AnalysisOverlay
         analysisData={analysisData}

@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useRef, useMemo } from 'react';
+import { sessionManager } from './services/SessionManager';
 import { RealEssentiaAudioEngine } from './engines/RealEssentiaAudioEngine';
 import { StreamingAnalysisEngine } from './engines/StreamingAnalysisEngine';
 import { FileUpload } from './components/FileUpload';
@@ -14,7 +15,6 @@ import { AppShell, TopBar, Sidebar, Inspector, BottomDock, MainStage } from './c
 // Phase 0-1: Keep old components imported but not rendered (for future migration)
 // import { DAWTopBar } from './components/DAWTopBar';
 // import { DAWSidebar } from './components/DAWSidebar';
-// import { DAWMeterBridge } from './components/DAWMeterBridge';
 import {
   NotificationProvider,
   useNotificationHelpers
@@ -33,7 +33,7 @@ import type { InspectorTab, AnalysisMode } from './types/layout';
 import { HealthCheck, type SystemHealth } from './utils/HealthCheck';
 import { PerformanceMonitor, PerformanceCategory } from './utils/PerformanceMonitor';
 import { ErrorHandler, handleFileError, handleAnalysisError } from './utils/ErrorHandler';
-import { dbService } from './services/DBService';
+import { dbService, TrackRecord } from './services/DBService';
 import { HashUtils } from './utils/HashUtils';
 import { Settings } from 'lucide-react';
 
@@ -64,14 +64,17 @@ function ProductionAppContent() {
 
   const notifications = useNotificationHelpers();
 
-  const handleLoadFromLibrary = useCallback((track: any) => {
-    // Hydrate analysis context with saved data
-    if (track.analysis.full) {
-      analysis.completeAnalysis(track.analysis.full);
+  const handleLoadFromLibrary = useCallback(async (track: TrackRecord) => {
+    // 1. Fetch full analysis artifact
+    const artifact = await dbService.getArtifact(track.id, 'full_analysis');
+    
+    if (artifact && artifact.type === 'full_analysis') {
+      analysis.completeAnalysis(artifact.data);
       notifications.success('Loaded from Library', `Loaded analysis for ${track.filename}`);
-      // Note: Audio buffer is not available, so playback will be disabled until file is re-provided
       playback.reset();
       ui.setAnalysisMode('analyze');
+    } else {
+      notifications.error('Load Failed', 'Could not retrieve analysis data for this track.');
     }
   }, [analysis, notifications, playback, ui]);
 
@@ -256,13 +259,10 @@ function ProductionAppContent() {
     );
 
     try {
-      // Validate file
-      if (file.size > 200 * 1024 * 1024) {
-        throw new Error('File too large (max 200MB)');
-      }
-
-      const audioId = `${file.name}-${file.size}-${file.lastModified}`;
-      comparison.dispatch({ type: 'SET_SOURCE_FILE', payload: { file, audioId } });
+      // 1. Ingest through SessionManager (Deduplication Check)
+      const { trackId, existingAnalysis } = await sessionManager.ingestFile(file);
+      
+      comparison.dispatch({ type: 'SET_SOURCE_FILE', payload: { file, audioId: trackId } });
 
       // Check if streaming analysis is needed
       const shouldUseStreaming = file.size > 50 * 1024 * 1024; // 50MB threshold
@@ -282,12 +282,19 @@ function ProductionAppContent() {
       playback.reset();
       notifications.fileUploaded(file.name);
 
-      // Auto-start analysis
-      setTimeout(() => {
-        if (analysis.state.engineStatus.status === 'ready') {
-          startAnalysis();
-        }
-      }, 100);
+      // 2. If analysis exists, rehydrate instantly. Otherwise, auto-start.
+      if (existingAnalysis) {
+        analysis.completeAnalysis(existingAnalysis);
+        const cacheVersion = `${trackId}-${Date.now()}`;
+        comparison.dispatch({ type: 'SET_SOURCE_DATA', payload: { data: existingAnalysis, cacheVersion } });
+        notifications.success('Analysis Recovered', 'Loaded previous analysis from library.');
+      } else {
+        setTimeout(() => {
+          if (analysis.state.engineStatus.status === 'ready') {
+            startAnalysis();
+          }
+        }, 100);
+      }
 
     } catch (error) {
       handleFileError(error as Error, file.name, file.size);
@@ -393,34 +400,9 @@ function ProductionAppContent() {
       comparison.dispatch({ type: 'SET_SOURCE_DATA', payload: { data: result, cacheVersion } });
       notifications.analysisComplete(selectedFile.name);
 
-      // Persist to Library
+      // Persist through SessionManager
       try {
-        const fingerprint = await HashUtils.computeFingerprint(selectedFile);
-        
-        // Extract normalized tags
-        const genreTags = result.genre?.genre ? [result.genre.genre] : [];
-        const moodTags = result.mood ? Object.entries(result.mood)
-          .filter(([_, data]) => data.confidence > 0.5)
-          .map(([mood]) => mood) : [];
-
-        await dbService.saveTrack({
-          id: fingerprint,
-          filename: selectedFile.name,
-          dateAdded: Date.now(),
-          duration: result.duration,
-          analysis: {
-            full: result,
-            spectral: {
-              bpm: result.tempo?.bpm,
-              key: result.key?.key && result.key?.scale ? `${result.key.key} ${result.key.scale}` : undefined,
-              energy: result.spectral?.energy?.mean
-            },
-            tags: {
-              genre: genreTags,
-              mood: moodTags
-            }
-          }
-        });
+        await sessionManager.saveAnalysis(selectedFile, result);
         notifications.success('Saved to Library', 'Track analyzed and saved.');
       } catch (dbErr) {
         console.error('Persistence failed:', dbErr);
@@ -444,8 +426,7 @@ function ProductionAppContent() {
       analysis.errorAnalysis(error instanceof Error ? error.message : 'Unknown error');
 
       handleAnalysisError(error as Error, 'complete-analysis', {
-        fileSize: selectedFile.size,
-        streamingMode: useStreamingAnalysis
+        length: selectedFile.size,
       });
 
       notifications.analysisError(
@@ -591,9 +572,6 @@ function ProductionAppContent() {
         waveformSlot={
           analysis.state.selectedFile ? (
             <WaveformVisualizer
-              audioFile={analysis.state.selectedFile}
-              currentTime={playback.state.currentTime}
-              isPlaying={playback.state.isPlaying}
               onSeek={(time) => playback.setPendingSeek(time)}
             />
           ) : (

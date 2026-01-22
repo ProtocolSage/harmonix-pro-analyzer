@@ -478,7 +478,7 @@ export class EssentiaAudioEngine {
       const processingTime = performance.now() - startTime;
       
       return {
-        ...coreAnalysis,
+        ...(coreAnalysis as object),
         duration,
         sampleRate,
         channels: audioBuffer.numberOfChannels,

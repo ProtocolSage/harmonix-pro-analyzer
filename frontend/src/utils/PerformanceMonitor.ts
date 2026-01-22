@@ -4,7 +4,7 @@ export interface PerformanceMetric {
   startTime: number;
   endTime?: number;
   duration?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   tags?: string[];
   category: PerformanceCategory;
 }
@@ -97,8 +97,8 @@ class PerformanceMonitorClass {
         const lcpObserver = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
             this.recordSystemMetric('largest-contentful-paint', entry.startTime, {
-              size: (entry as any).size,
-              element: (entry as any).element?.tagName
+              size: (entry as unknown as { size: number }).size,
+              element: (entry as unknown as { element?: Element }).element?.tagName
             });
           }
         });
@@ -108,8 +108,8 @@ class PerformanceMonitorClass {
         const clsObserver = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
             this.recordSystemMetric('cumulative-layout-shift', performance.now(), {
-              value: (entry as any).value,
-              hadRecentInput: (entry as any).hadRecentInput
+              value: (entry as unknown as { value: number }).value,
+              hadRecentInput: (entry as unknown as { hadRecentInput: boolean }).hadRecentInput
             });
           }
         });
@@ -376,7 +376,7 @@ class PerformanceMonitorClass {
       };
       
       return acc;
-    }, {} as Record<PerformanceCategory, any>);
+    }, {} as Record<PerformanceCategory, { count: number; averageDuration: number; totalDuration: number; metrics: PerformanceMetric[] }>);
 
     const memoryUsage = {
       current: this.getCurrentMemoryUsage(),
@@ -446,14 +446,25 @@ class PerformanceMonitorClass {
 export const PerformanceMonitor = new PerformanceMonitorClass();
 
 // Convenience functions
-export const startTiming = (name: string, category: PerformanceCategory, metadata?: Record<string, any>) =>
+
+export const startTiming = (name: string, category: PerformanceCategory, metadata?: Record<string, unknown>) =>
+
   PerformanceMonitor.startTiming(name, category, metadata);
 
-export const endTiming = (id: string, metadata?: Record<string, any>) =>
+
+
+export const endTiming = (id: string, metadata?: Record<string, unknown>) =>
+
   PerformanceMonitor.endTiming(id, metadata);
 
-export const timeFunction = <T>(fn: () => T | Promise<T>, name: string, category: PerformanceCategory, metadata?: Record<string, any>) =>
+
+
+export const timeFunction = <T>(fn: () => T | Promise<T>, name: string, category: PerformanceCategory, metadata?: Record<string, unknown>) =>
+
   PerformanceMonitor.timeFunction(fn, name, category, metadata);
 
-export const recordInstantMetric = (name: string, value: number, category: PerformanceCategory, metadata?: Record<string, any>) =>
+
+
+export const recordInstantMetric = (name: string, value: number, category: PerformanceCategory, metadata?: Record<string, unknown>) =>
+
   PerformanceMonitor.recordInstantMetric(name, value, category, metadata);
