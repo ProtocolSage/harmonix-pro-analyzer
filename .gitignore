@@ -1,3 +1,11 @@
 frontend/node_modules/.vite/
 .tfjs_conv_env/
 frontend/codex-*
+node_modules/
+firebase-debug.log
+*.log
+frontend/firebase-debug.log
+frontend/conductor/*.swp
+**/*.swp
+frontend/node_modules/
+frontend/node_modules/.package-lock.json
