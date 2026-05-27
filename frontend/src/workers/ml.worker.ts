@@ -1,5 +1,5 @@
 import * as tf from '@tensorflow/tfjs';
-import '@tensorflow/tfjs-backend-wasm';
+import * as tfwasm from '@tensorflow/tfjs-backend-wasm';
 import { 
   MLWorkerOutboundMessage, 
   MLWorkerInboundMessage,
@@ -31,7 +31,7 @@ async function initBackend(preferredBackend: 'wasm' | 'webgl' | 'cpu' = 'wasm') 
       console.log(`📡 ML Worker: Attempting to set backend to ${backend}...`);
       
       if (backend === 'wasm') {
-        (tf as any).wasm.setWasmPaths('/assets/tfjs-backend-wasm/'); 
+        tfwasm.setWasmPaths('/assets/tfjs-backend-wasm/');
       }
 
       await tf.setBackend(backend);
