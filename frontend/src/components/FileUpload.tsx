@@ -1,3 +1,4 @@
+import { validateMagicBytes } from '../utils/fileValidation';
 import { useState, useCallback, useRef } from 'react';
 import { Upload, File, AlertCircle, CheckCircle, X } from 'lucide-react';
 
@@ -19,7 +20,7 @@ export function FileUpload({ onFileSelect, isProcessing, engineReady }: FileUplo
   const [validation, setValidation] = useState<FileValidation | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const validateFile = useCallback((file: File): FileValidation => {
+  const validateFile = useCallback(async (file: File): Promise<FileValidation> => {
     const maxSize = 100 * 1024 * 1024; // 100MB
     const allowedTypes = [
       'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/wave',
@@ -28,6 +29,16 @@ export function FileUpload({ onFileSelect, isProcessing, engineReady }: FileUplo
     ];
 
     const warnings: string[] = [];
+
+
+    // Magic byte validation
+    const hasValidMagicBytes = await validateMagicBytes(file);
+    if (!hasValidMagicBytes) {
+      return {
+        isValid: false,
+        error: `Security Warning: Invalid magic bytes. The file may be spoofed or corrupted.`
+      };
+    }
 
     // Check file type
     const isMimeAllowed = allowedTypes.some(type => file.type === type || file.type.startsWith(`${type};`));
@@ -77,8 +88,8 @@ export function FileUpload({ onFileSelect, isProcessing, engineReady }: FileUplo
     };
   }, []);
 
-  const handleFile = useCallback((file: File) => {
-    const validation = validateFile(file);
+  const handleFile = useCallback(async (file: File) => {
+    const validation = await validateFile(file);
     setValidation(validation);
     setSelectedFile(file);
 
