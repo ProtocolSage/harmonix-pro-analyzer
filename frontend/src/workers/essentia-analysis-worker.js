@@ -500,6 +500,7 @@ async function performSpectralAnalysis(channelData, sampleRate, frameSize, hopSi
   const spectralRolloffs = [];
   const spectralFlux = [];
   const energyValues = [];
+  const spectralRoughness = [];
   
   let previousSpectrum = null;
   const maxFrames = Math.min(150, Math.floor(channelData.length / hopSize)); // Limit for performance
@@ -540,6 +541,27 @@ async function performSpectralAnalysis(channelData, sampleRate, frameSize, hopSi
         spectralFlux.push(flux.flux);
       }
       
+      // Calculate spectral roughness (dissonance)
+      let peaks = null;
+      try {
+        peaks = essentia.SpectralPeaks(spectrum.spectrum, 0.0001, 10000, 100, 0, 'magnitude', sampleRate);
+        const diss = essentia.Dissonance(peaks.frequencies, peaks.magnitudes);
+        spectralRoughness.push(diss.dissonance);
+      } catch (e) {
+        // Fallback: spectral irregularity
+        let roughness = 0;
+        const specArray = essentia.vectorToArray(spectrum.spectrum);
+        for (let j = 1; j < specArray.length - 1; j++) {
+          roughness += Math.abs(specArray[j] - (specArray[j-1] + specArray[j+1]) / 2);
+        }
+        spectralRoughness.push(roughness / specArray.length);
+      } finally {
+        if (peaks) {
+          if (peaks.frequencies) peaks.frequencies.delete();
+          if (peaks.magnitudes) peaks.magnitudes.delete();
+        }
+      }
+
       // Store current spectrum for next iteration
       if (previousSpectrum) previousSpectrum.delete();
       previousSpectrum = spectrum.spectrum;
@@ -579,7 +601,7 @@ async function performSpectralAnalysis(channelData, sampleRate, frameSize, hopSi
     flux: calculateStats(spectralFlux),
     energy: calculateStats(energyValues),
     brightness: calculateStats(spectralCentroids), // Centroid is a brightness indicator
-    roughness: { mean: 0, std: 0 }, // TODO: Implement spectral roughness
+    roughness: calculateStats(spectralRoughness),
     spread: { mean: 0, std: 0 }, // TODO: Implement spectral spread
     zcr: { mean: 0, std: 0 } // TODO: Implement zero crossing rate
   };
