@@ -12,6 +12,7 @@ export class MLEngineCoordinator {
   private isInitialized = false;
   private isWarmingUp = false;
   private isLowMemoryMode = false;
+  private activeBackend = 'wasm';
   
   private pendingPredictions = new Map<string, { 
     resolve: (value: MLInferenceResult) => void, 
@@ -103,6 +104,7 @@ export class MLEngineCoordinator {
     switch (msg.type) {
       case 'WORKER_READY':
         this.isInitialized = true;
+        this.activeBackend = msg.payload.backend;
         console.log(`✅ ML Coordinator: Worker Ready (${msg.payload.backend})`);
         this.startWarmup();
         break;
@@ -144,8 +146,8 @@ export class MLEngineCoordinator {
         predictions: payload.predictions,
         metadata: {
           latencyMs: payload.processingTime,
-          modelVersion: '1.0.0', // TODO: Get from worker
-          backend: 'wasm' // TODO: Get from state
+          modelVersion: payload.modelVersion,
+          backend: this.activeBackend
         }
       });
       this.pendingPredictions.delete(payload.audioId);
