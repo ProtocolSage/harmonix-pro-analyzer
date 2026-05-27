@@ -4,8 +4,6 @@ import {
   MLWorkerOutboundMessage, 
   MLWorkerInboundMessage,
   MLPredictPayload,
-  MLPredictionResult,
-  MLModelStatus,
   MLPrediction
 } from './mlWorkerProtocol';
 
@@ -42,7 +40,7 @@ async function initBackend(preferredBackend: 'wasm' | 'webgl' | 'cpu' = 'wasm') 
         // Test WebGL context
         const gl = (tf.backend() as any).getGPGPUContext?.().gl;
         if (gl) {
-          gl.canvas.addEventListener('webglcontextlost', (e: Event) => {
+          gl.canvas.addEventListener('webglcontextlost', () => {
             console.warn('⚠️ ML Worker: WebGL context lost!');
             handleContextLoss();
           }, { once: true });
@@ -127,7 +125,7 @@ async function warmUp(config?: { modelUrl?: string; labelsUrl?: string; modelNam
 
 // Prediction logic
 async function predict(payload: MLPredictPayload) {
-  const { audioId, melSpectrogram, sampleRate, duration } = payload;
+  const { audioId, melSpectrogram } = payload;
 
   if (!model) {
     postReply({ 
