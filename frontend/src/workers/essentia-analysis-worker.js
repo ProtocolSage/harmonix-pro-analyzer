@@ -500,6 +500,7 @@ async function performSpectralAnalysis(channelData, sampleRate, frameSize, hopSi
   const spectralRolloffs = [];
   const spectralFlux = [];
   const energyValues = [];
+  const zcrValues = [];
   
   let previousSpectrum = null;
   const maxFrames = Math.min(150, Math.floor(channelData.length / hopSize)); // Limit for performance
@@ -530,6 +531,11 @@ async function performSpectralAnalysis(channelData, sampleRate, frameSize, hopSi
       const rolloff = essentia.RollOff(spectrum.spectrum, 0.85, sampleRate);
       spectralRolloffs.push(rolloff.rollOff);
       
+      // Calculate zero crossing rate
+      const zcr = essentia.ZeroCrossingRate(frameVector);
+      // Some mocks return zcr instead of zeroCrossingRate
+      zcrValues.push(zcr.zeroCrossingRate !== undefined ? zcr.zeroCrossingRate : zcr.zcr);
+
       // Calculate energy (RMS of the frame)
       const energy = essentia.Energy(frameVector);
       energyValues.push(energy.energy);
@@ -581,7 +587,7 @@ async function performSpectralAnalysis(channelData, sampleRate, frameSize, hopSi
     brightness: calculateStats(spectralCentroids), // Centroid is a brightness indicator
     roughness: { mean: 0, std: 0 }, // TODO: Implement spectral roughness
     spread: { mean: 0, std: 0 }, // TODO: Implement spectral spread
-    zcr: { mean: 0, std: 0 } // TODO: Implement zero crossing rate
+    zcr: calculateStats(zcrValues)
   };
 }
 
