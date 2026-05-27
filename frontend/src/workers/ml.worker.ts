@@ -164,6 +164,7 @@ async function predict(payload: MLPredictPayload) {
         audioId,
         predictions: results,
         modelName: 'msd-musicnn-1',
+        modelVersion: '1.0.0',
         processingTime
       }
     });

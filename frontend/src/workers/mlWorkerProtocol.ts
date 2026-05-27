@@ -22,6 +22,7 @@ export interface MLPredictionResult {
   audioId: string;
   predictions: MLPrediction[];
   modelName: string;
+  modelVersion: string;
   processingTime: number;
 }
 
