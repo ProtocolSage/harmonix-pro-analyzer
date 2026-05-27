@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FileUpload } from '../components/FileUpload';
 import '@testing-library/jest-dom';
+import { validateMagicBytes } from '../utils/fileValidation';
 
 describe('FileUpload Security Tests', () => {
   let mockOnFileSelect: ReturnType<typeof vi.fn>;
@@ -11,7 +12,7 @@ describe('FileUpload Security Tests', () => {
   });
 
   describe('File Type Validation', () => {
-    it('should accept valid audio MIME types', () => {
+    it('should accept valid audio MIME types', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
@@ -27,8 +28,10 @@ describe('FileUpload Security Tests', () => {
         'audio/aac',
       ];
 
-      validMimeTypes.forEach((mimeType) => {
-        const file = new File(['audio content'], 'test.mp3', { type: mimeType });
+      for (const mimeType of validMimeTypes) {
+        // We need valid MP3 magic bytes so it passes the magic byte check
+        const validMP3Header = new Uint8Array([0xFF, 0xFB, 0x90, 0x00]);
+        const file = new File([validMP3Header as unknown as BlobPart], 'test.mp3', { type: mimeType });
         const input = container.querySelector('input[type="file"]') as HTMLInputElement;
 
         Object.defineProperty(input, 'files', {
@@ -37,12 +40,14 @@ describe('FileUpload Security Tests', () => {
         });
 
         fireEvent.change(input);
-        expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+        await waitFor(() => {
+          expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+        });
         mockOnFileSelect.mockClear();
-      });
+      }
     });
 
-    it('should reject invalid MIME types', () => {
+    it('should reject invalid MIME types', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
@@ -55,7 +60,7 @@ describe('FileUpload Security Tests', () => {
         { type: 'application/x-executable', name: 'malware.exe' },
       ];
 
-      invalidMimeTypes.forEach(({ type, name }) => {
+      for (const { type, name } of invalidMimeTypes) {
         const file = new File(['content'], name, { type });
         const input = container.querySelector('input[type="file"]') as HTMLInputElement;
 
@@ -65,19 +70,28 @@ describe('FileUpload Security Tests', () => {
         });
 
         fireEvent.change(input);
+        // We give it a short time to process the async validation
+        await new Promise(resolve => setTimeout(resolve, 10));
         expect(mockOnFileSelect).not.toHaveBeenCalled();
-      });
+      }
     });
 
-    it('should accept files with valid extensions even if MIME type is missing', () => {
+    it('should accept files with valid extensions even if MIME type is missing', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
 
-      const validExtensions = ['test.mp3', 'test.wav', 'test.flac', 'test.aiff', 'test.ogg'];
+      // Need real headers for the magic bytes check to pass
+      const validHeaders: Record<string, Uint8Array> = {
+        'test.mp3': new Uint8Array([0xFF, 0xFB, 0x90, 0x00]),
+        'test.wav': new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45]),
+        'test.flac': new Uint8Array([0x66, 0x4C, 0x61, 0x43]),
+        'test.aiff': new Uint8Array([0x46, 0x4F, 0x52, 0x4D, 0x00, 0x00, 0x00, 0x00, 0x41, 0x49, 0x46, 0x46]),
+        'test.ogg': new Uint8Array([0x4F, 0x67, 0x67, 0x53]),
+      };
 
-      validExtensions.forEach((filename) => {
-        const file = new File(['audio content'], filename, { type: '' });
+      for (const filename of Object.keys(validHeaders)) {
+        const file = new File([validHeaders[filename] as unknown as BlobPart], filename, { type: '' });
         const input = container.querySelector('input[type="file"]') as HTMLInputElement;
 
         Object.defineProperty(input, 'files', {
@@ -86,12 +100,14 @@ describe('FileUpload Security Tests', () => {
         });
 
         fireEvent.change(input);
-        expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+        await waitFor(() => {
+          expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+        });
         mockOnFileSelect.mockClear();
-      });
+      }
     });
 
-    it('should reject files with mismatched extension and MIME type (SECURITY)', () => {
+    it('should reject files with mismatched extension and MIME type (SECURITY)', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
@@ -107,19 +123,23 @@ describe('FileUpload Security Tests', () => {
 
       fireEvent.change(input);
       // Should reject because MIME type is not audio
+      await new Promise(resolve => setTimeout(resolve, 10));
       expect(mockOnFileSelect).not.toHaveBeenCalled();
     });
   });
 
   describe('File Size Validation', () => {
-    it('should accept files under 100MB', () => {
+    it('should accept files under 100MB', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
 
       // Create 50MB file
       const size = 50 * 1024 * 1024;
-      const file = new File([new ArrayBuffer(size)], 'test.mp3', { type: 'audio/mpeg' });
+      const validMP3Header = new Uint8Array([0xFF, 0xFB, 0x90, 0x00]);
+      // the slice handles only the first bytes, so we can just provide the valid header
+      // and mock size
+      const file = new File([validMP3Header as unknown as BlobPart], 'test.mp3', { type: 'audio/mpeg' });
 
       Object.defineProperty(file, 'size', { value: size, configurable: true });
 
@@ -130,10 +150,12 @@ describe('FileUpload Security Tests', () => {
       });
 
       fireEvent.change(input);
-      expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+      await waitFor(() => {
+        expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+      });
     });
 
-    it('should reject files over 100MB', () => {
+    it('should reject files over 100MB', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
@@ -151,6 +173,7 @@ describe('FileUpload Security Tests', () => {
       });
 
       fireEvent.change(input);
+      await new Promise(resolve => setTimeout(resolve, 10));
       expect(mockOnFileSelect).not.toHaveBeenCalled();
     });
 
@@ -160,7 +183,8 @@ describe('FileUpload Security Tests', () => {
       );
 
       const size = 75 * 1024 * 1024;
-      const file = new File([new ArrayBuffer(1024)], 'large.mp3', { type: 'audio/mpeg' });
+      const validMP3Header = new Uint8Array([0xFF, 0xFB, 0x90, 0x00]);
+      const file = new File([validMP3Header as unknown as BlobPart], 'large.mp3', { type: 'audio/mpeg' });
 
       Object.defineProperty(file, 'size', { value: size, configurable: true });
 
@@ -177,7 +201,7 @@ describe('FileUpload Security Tests', () => {
       });
     });
 
-    it('should handle zero-byte files', () => {
+    it('should handle zero-byte files', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
@@ -192,46 +216,40 @@ describe('FileUpload Security Tests', () => {
 
       fireEvent.change(input);
       // Should still accept (backend will handle invalid audio)
-      expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+      await waitFor(() => {
+        expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+      });
     });
   });
 
-  describe('Magic Byte Validation (SECURITY GAP - TODO)', () => {
-    // These tests document the security gap identified in the audit
-    // Magic byte validation is not currently implemented
-
-    it.skip('should validate MP3 magic bytes (SECURITY TODO)', async () => {
+  describe('Magic Byte Validation (SECURITY GAP - RESOLVED)', () => {
+    it('should validate MP3 magic bytes', async () => {
       // MP3 files should start with ID3 or 0xFF 0xFB
-      // Current implementation: NOT VALIDATED
-      // Risk: Malicious files can be disguised as MP3
 
       const validMP3Header = new Uint8Array([0xFF, 0xFB, 0x90, 0x00]);
-      const file = new File([validMP3Header], 'valid.mp3', { type: 'audio/mpeg' });
+      const file = new File([validMP3Header as unknown as BlobPart], 'valid.mp3', { type: 'audio/mpeg' });
 
-      // TODO: Implement magic byte validation
-      // expect(await validateMagicBytes(file)).toBe(true);
+      expect(await validateMagicBytes(file)).toBe(true);
     });
 
-    it.skip('should reject files with invalid magic bytes (SECURITY TODO)', async () => {
+    it('should reject files with invalid magic bytes', async () => {
       // File claims to be MP3 but has EXE magic bytes (MZ)
       const exeHeader = new Uint8Array([0x4D, 0x5A, 0x90, 0x00]);
-      const file = new File([exeHeader], 'malware.mp3', { type: 'audio/mpeg' });
+      const file = new File([exeHeader as unknown as BlobPart], 'malware.mp3', { type: 'audio/mpeg' });
 
-      // TODO: Implement magic byte validation
-      // expect(await validateMagicBytes(file)).toBe(false);
+      expect(await validateMagicBytes(file)).toBe(false);
     });
 
-    it.skip('should validate WAV magic bytes (SECURITY TODO)', async () => {
+    it('should validate WAV magic bytes', async () => {
       // WAV files should start with RIFF....WAVE
       const validWAVHeader = new Uint8Array([
         0x52, 0x49, 0x46, 0x46, // RIFF
         0x00, 0x00, 0x00, 0x00, // file size
         0x57, 0x41, 0x56, 0x45, // WAVE
       ]);
-      const file = new File([validWAVHeader], 'valid.wav', { type: 'audio/wav' });
+      const file = new File([validWAVHeader as unknown as BlobPart], 'valid.wav', { type: 'audio/wav' });
 
-      // TODO: Implement magic byte validation
-      // expect(await validateMagicBytes(file)).toBe(true);
+      expect(await validateMagicBytes(file)).toBe(true);
     });
   });
 
@@ -241,7 +259,8 @@ describe('FileUpload Security Tests', () => {
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
 
-      const file = new File(['content'], 'my audio file.mp3', { type: 'audio/mpeg' });
+      const validMP3Header = new Uint8Array([0xFF, 0xFB, 0x90, 0x00]);
+      const file = new File([validMP3Header as unknown as BlobPart], 'my audio file.mp3', { type: 'audio/mpeg' });
       const input = container.querySelector('input[type="file"]') as HTMLInputElement;
 
       Object.defineProperty(input, 'files', {
@@ -256,13 +275,14 @@ describe('FileUpload Security Tests', () => {
       });
     });
 
-    it('should handle very long filenames', () => {
+    it('should handle very long filenames', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
 
       const longName = 'a'.repeat(255) + '.mp3';
-      const file = new File(['content'], longName, { type: 'audio/mpeg' });
+      const validMP3Header = new Uint8Array([0xFF, 0xFB, 0x90, 0x00]);
+      const file = new File([validMP3Header as unknown as BlobPart], longName, { type: 'audio/mpeg' });
       const input = container.querySelector('input[type="file"]') as HTMLInputElement;
 
       Object.defineProperty(input, 'files', {
@@ -271,10 +291,12 @@ describe('FileUpload Security Tests', () => {
       });
 
       fireEvent.change(input);
-      expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+      await waitFor(() => {
+        expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+      });
     });
 
-    it('should handle special characters in filename', () => {
+    it('should handle special characters in filename', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
@@ -287,8 +309,9 @@ describe('FileUpload Security Tests', () => {
         'test;semicolon.mp3',
       ];
 
-      specialNames.forEach((name) => {
-        const file = new File(['content'], name, { type: 'audio/mpeg' });
+      const validMP3Header = new Uint8Array([0xFF, 0xFB, 0x90, 0x00]);
+      for (const name of specialNames) {
+        const file = new File([validMP3Header as unknown as BlobPart], name, { type: 'audio/mpeg' });
         const input = container.querySelector('input[type="file"]') as HTMLInputElement;
 
         Object.defineProperty(input, 'files', {
@@ -297,14 +320,16 @@ describe('FileUpload Security Tests', () => {
         });
 
         fireEvent.change(input);
-        expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+        await waitFor(() => {
+          expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+        });
         mockOnFileSelect.mockClear();
-      });
+      }
     });
   });
 
   describe('Drag and Drop Security', () => {
-    it('should only accept files when engine is ready', () => {
+    it('should only accept files when engine is ready', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={false} />
       );
@@ -320,10 +345,11 @@ describe('FileUpload Security Tests', () => {
       });
 
       fireEvent(dropZone, dropEvent);
+      await new Promise(resolve => setTimeout(resolve, 10));
       expect(mockOnFileSelect).not.toHaveBeenCalled();
     });
 
-    it('should prevent file upload when processing', () => {
+    it('should prevent file upload when processing', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={true} engineReady={true} />
       );
@@ -341,15 +367,16 @@ describe('FileUpload Security Tests', () => {
       expect(input.disabled).toBe(true);
     });
 
-    it('should handle multiple files in drop (only process first)', () => {
+    it('should handle multiple files in drop (only process first)', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
 
+      const validMP3Header = new Uint8Array([0xFF, 0xFB, 0x90, 0x00]);
       const files = [
-        new File(['content1'], 'test1.mp3', { type: 'audio/mpeg' }),
-        new File(['content2'], 'test2.mp3', { type: 'audio/mpeg' }),
-        new File(['content3'], 'test3.mp3', { type: 'audio/mpeg' }),
+        new File([validMP3Header as unknown as BlobPart], 'test1.mp3', { type: 'audio/mpeg' }),
+        new File([validMP3Header as unknown as BlobPart], 'test2.mp3', { type: 'audio/mpeg' }),
+        new File([validMP3Header as unknown as BlobPart], 'test3.mp3', { type: 'audio/mpeg' }),
       ];
 
       const dropZone = container.querySelector('.hp-dropzone') as HTMLElement;
@@ -360,14 +387,15 @@ describe('FileUpload Security Tests', () => {
 
       fireEvent(dropZone, dropEvent);
 
-      // Should only process first file
-      expect(mockOnFileSelect).toHaveBeenCalledTimes(1);
+      await waitFor(() => {
+        expect(mockOnFileSelect).toHaveBeenCalledTimes(1);
+      });
       expect(mockOnFileSelect).toHaveBeenCalledWith(files[0]);
     });
   });
 
   describe('Edge Cases and Attack Vectors', () => {
-    it('should handle null file objects', () => {
+    it('should handle null file objects', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
@@ -380,15 +408,17 @@ describe('FileUpload Security Tests', () => {
       });
 
       fireEvent.change(input);
+      await new Promise(resolve => setTimeout(resolve, 10));
       expect(mockOnFileSelect).not.toHaveBeenCalled();
     });
 
-    it('should handle file with malformed MIME type', () => {
+    it('should handle file with malformed MIME type', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
 
-      const file = new File(['content'], 'test.mp3', { type: 'audio/mpeg; charset=utf-8; <script>' });
+      const validMP3Header = new Uint8Array([0xFF, 0xFB, 0x90, 0x00]);
+      const file = new File([validMP3Header as unknown as BlobPart], 'test.mp3', { type: 'audio/mpeg; charset=utf-8; <script>' });
       const input = container.querySelector('input[type="file"]') as HTMLInputElement;
 
       Object.defineProperty(input, 'files', {
@@ -398,10 +428,12 @@ describe('FileUpload Security Tests', () => {
 
       fireEvent.change(input);
       // Should still validate based on extension
-      expect(mockOnFileSelect).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(mockOnFileSelect).toHaveBeenCalled();
+      });
     });
 
-    it('should handle file with path traversal in name (SECURITY)', () => {
+    it('should handle file with path traversal in name (SECURITY)', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
@@ -412,8 +444,9 @@ describe('FileUpload Security Tests', () => {
         './../../sensitive.mp3',
       ];
 
-      maliciousNames.forEach((name) => {
-        const file = new File(['content'], name, { type: 'audio/mpeg' });
+      const validMP3Header = new Uint8Array([0xFF, 0xFB, 0x90, 0x00]);
+      for (const name of maliciousNames) {
+        const file = new File([validMP3Header as unknown as BlobPart], name, { type: 'audio/mpeg' });
         const input = container.querySelector('input[type="file"]') as HTMLInputElement;
 
         Object.defineProperty(input, 'files', {
@@ -424,12 +457,14 @@ describe('FileUpload Security Tests', () => {
         fireEvent.change(input);
         // Should still accept (filename is sanitized by browser)
         // But backend should validate path
-        expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+        await waitFor(() => {
+          expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+        });
         mockOnFileSelect.mockClear();
-      });
+      }
     });
 
-    it('should handle extremely large file sizes (overflow)', () => {
+    it('should handle extremely large file sizes (overflow)', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
@@ -447,6 +482,7 @@ describe('FileUpload Security Tests', () => {
       });
 
       fireEvent.change(input);
+      await new Promise(resolve => setTimeout(resolve, 10));
       expect(mockOnFileSelect).not.toHaveBeenCalled();
     });
   });
@@ -457,7 +493,8 @@ describe('FileUpload Security Tests', () => {
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
 
-      const file = new File(['content'], 'test.mp3', { type: 'audio/mpeg' });
+      const validMP3Header = new Uint8Array([0xFF, 0xFB, 0x90, 0x00]);
+      const file = new File([validMP3Header as unknown as BlobPart], 'test.mp3', { type: 'audio/mpeg' });
       const input = container.querySelector('input[type="file"]') as HTMLInputElement;
 
       Object.defineProperty(input, 'files', {
@@ -472,12 +509,13 @@ describe('FileUpload Security Tests', () => {
       });
     });
 
-    it('should not warn for lossless formats', () => {
+    it('should not warn for lossless formats', async () => {
       const { container } = render(
         <FileUpload onFileSelect={mockOnFileSelect} isProcessing={false} engineReady={true} />
       );
 
-      const file = new File(['content'], 'test.wav', { type: 'audio/wav' });
+      const validWAVHeader = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45]);
+      const file = new File([validWAVHeader as unknown as BlobPart], 'test.wav', { type: 'audio/wav' });
       const input = container.querySelector('input[type="file"]') as HTMLInputElement;
 
       Object.defineProperty(input, 'files', {
@@ -487,6 +525,8 @@ describe('FileUpload Security Tests', () => {
 
       fireEvent.change(input);
 
+      // wait for UI updates
+      await new Promise(resolve => setTimeout(resolve, 50));
       expect(screen.queryByText(/Compressed audio detected/i)).not.toBeInTheDocument();
     });
   });

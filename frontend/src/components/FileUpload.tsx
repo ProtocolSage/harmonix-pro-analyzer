@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { Upload, File, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { validateMagicBytes } from '../utils/fileValidation';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -19,7 +20,7 @@ export function FileUpload({ onFileSelect, isProcessing, engineReady }: FileUplo
   const [validation, setValidation] = useState<FileValidation | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const validateFile = useCallback((file: File): FileValidation => {
+  const validateFile = useCallback(async (file: File): Promise<FileValidation> => {
     const maxSize = 100 * 1024 * 1024; // 100MB
     const allowedTypes = [
       'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/wave',
@@ -58,6 +59,17 @@ export function FileUpload({ onFileSelect, isProcessing, engineReady }: FileUplo
       };
     }
 
+    // Magic bytes security check
+    if (file.size > 0) {
+      const hasValidMagicBytes = await validateMagicBytes(file);
+      if (!hasValidMagicBytes) {
+        return {
+          isValid: false,
+          error: 'Security Warning: File content does not match its audio extension.'
+        };
+      }
+    }
+
     // Add warnings for various conditions
     if (file.size > 50 * 1024 * 1024) {
       warnings.push('Large file detected. Analysis may take longer.');
@@ -77,8 +89,8 @@ export function FileUpload({ onFileSelect, isProcessing, engineReady }: FileUplo
     };
   }, []);
 
-  const handleFile = useCallback((file: File) => {
-    const validation = validateFile(file);
+  const handleFile = useCallback(async (file: File) => {
+    const validation = await validateFile(file);
     setValidation(validation);
     setSelectedFile(file);
 
@@ -87,7 +99,7 @@ export function FileUpload({ onFileSelect, isProcessing, engineReady }: FileUplo
     }
   }, [validateFile, onFileSelect]);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
 
@@ -95,7 +107,7 @@ export function FileUpload({ onFileSelect, isProcessing, engineReady }: FileUplo
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      handleFile(files[0]);
+      await handleFile(files[0]);
     }
   }, [engineReady, isProcessing, handleFile]);
 
@@ -111,10 +123,10 @@ export function FileUpload({ onFileSelect, isProcessing, engineReady }: FileUplo
     setIsDragOver(false);
   }, []);
 
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInput = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      handleFile(files[0]);
+      await handleFile(files[0]);
     }
   }, [handleFile]);
 
