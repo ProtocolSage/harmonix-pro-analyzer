@@ -5,7 +5,7 @@ import {
   MLPredictPayload
 } from '../workers/mlWorkerProtocol';
 
-import { MLInferenceInput, MLInferenceResult, MLTelemetry } from '../types/ml';
+import { MLInferenceInput, MLInferenceResult, MLTelemetry, MLModelConfig } from '../types/ml';
 
 export class MLEngineCoordinator {
   private worker: Worker | null = null;
@@ -20,8 +20,10 @@ export class MLEngineCoordinator {
 
   private workerRestartCount = 0;
   private readonly MAX_RESTARTS = 3;
+  private config?: Partial<MLModelConfig>;
 
-  constructor() {
+  constructor(config?: Partial<MLModelConfig>) {
+    this.config = config;
     this.checkSystemCapabilities();
   }
 
@@ -133,7 +135,7 @@ export class MLEngineCoordinator {
   private startWarmup() {
     if (!this.isWarmingUp && !this.isLowMemoryMode) {
         this.isWarmingUp = true;
-        this.postMessage({ type: 'WARMUP' });
+        this.postMessage({ type: 'WARMUP', payload: this.config });
     }
   }
 
