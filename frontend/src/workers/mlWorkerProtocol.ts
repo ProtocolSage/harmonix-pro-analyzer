@@ -40,7 +40,7 @@ export interface MLPredictPayload {
 
 export type MLWorkerOutboundMessage =
   | { type: 'INIT'; payload: { backend: 'wasm' | 'webgl' | 'cpu' } }
-  | { type: 'WARMUP' }
+  | { type: 'WARMUP'; payload?: { modelUrl?: string; labelsUrl?: string; modelName?: string; version?: string; threshold?: number } }
   | { type: 'PREDICT'; payload: MLPredictPayload };
 
 export type MLWorkerInboundMessage =

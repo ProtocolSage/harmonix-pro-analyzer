@@ -13,6 +13,7 @@ let model: tf.GraphModel | null = null;
 let labels: string[] = [];
 let isWarmingUp = false;
 let currentBackend: string = 'unknown';
+let currentModelName: string = 'msd-musicnn-1';
 
 // Send message wrapper to ensure type safety
 function postReply(message: MLWorkerInboundMessage) {
@@ -75,19 +76,20 @@ function handleContextLoss() {
 }
 
 // Model loading and warm-up
-async function warmUp() {
+async function warmUp(config?: { modelUrl?: string; labelsUrl?: string; modelName?: string; }) {
   if (isWarmingUp || model) return;
   isWarmingUp = true;
 
   try {
+    const modelUrl = config?.modelUrl || '/models/musicnn/model.json';
+    const labelsUrl = config?.labelsUrl || '/models/musicnn/msd-vgg-1.json';
+    const modelName = config?.modelName || 'msd-musicnn-1';
+    currentModelName = modelName;
+
     postReply({ 
       type: 'MODEL_STATUS', 
-      payload: { modelName: 'msd-musicnn-1', loaded: false, progress: 0.1 } 
+      payload: { modelName, loaded: false, progress: 0.1 }
     });
-
-    // TODO: These URLs should come from config or be passed in
-    const modelUrl = '/models/musicnn/model.json';
-    const labelsUrl = '/models/musicnn/msd-vgg-1.json';
 
     // Load labels
     const labelsResponse = await fetch(labelsUrl);
@@ -96,7 +98,7 @@ async function warmUp() {
 
     postReply({ 
       type: 'MODEL_STATUS', 
-      payload: { modelName: 'msd-musicnn-1', loaded: false, progress: 0.5 } 
+      payload: { modelName, loaded: false, progress: 0.5 }
     });
 
     // Load model
@@ -109,7 +111,7 @@ async function warmUp() {
 
     postReply({ 
       type: 'MODEL_STATUS', 
-      payload: { modelName: 'msd-musicnn-1', loaded: true, progress: 1.0 } 
+      payload: { modelName, loaded: true, progress: 1.0 }
     });
 
   } catch (error) {
@@ -163,7 +165,7 @@ async function predict(payload: MLPredictPayload) {
       payload: {
         audioId,
         predictions: results,
-        modelName: 'msd-musicnn-1',
+        modelName: currentModelName,
         processingTime
       }
     });
@@ -183,10 +185,10 @@ self.onmessage = async (e: MessageEvent<MLWorkerOutboundMessage>) => {
 
   switch (type) {
     case 'INIT':
-      await initBackend(e.data.payload?.backend as any);
+      await initBackend((e.data as Extract<MLWorkerOutboundMessage, { type: 'INIT' }>).payload.backend);
       break;
     case 'WARMUP':
-      await warmUp();
+      await warmUp((e.data as Extract<MLWorkerOutboundMessage, { type: 'WARMUP' }>).payload);
       break;
     case 'PREDICT':
       await predict(e.data.payload);
